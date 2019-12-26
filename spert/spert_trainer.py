@@ -194,21 +194,13 @@ class SpERTTrainer(BaseTrainer):
             tables = torch.zeros((self.args.train_batch_size, context_size, entity_labels_count), dtype=torch.float).cuda()
             entity_boundary = torch.zeros((self.args.train_batch_size, context_size), dtype=torch.long).cuda()
             psudo_pred = torch.zeros((self.args.train_batch_size, context_size), dtype=torch.long).cuda()
-            for curr_i in range(context_size):
-                entity_logits, tables = model(batch.encodings, batch.ctx_masks, psudo_pred.clone(), tables, entity_boundary, curr_i)
-                psudo_pred[:, curr_i] = entity_logits.argmax(dim=1)
-                for b in range(self.args.train_batch_size):
-                    if  batch.entity_labels[b, curr_i] in start_labels:
-                        if batch.entity_labels[b, curr_i] == 0:
-                            entity_boundary[b, curr_i] = curr_i
-                            continue
-                        if batch.entity_labels[b, curr_i-1] != batch.entity_labels[b, curr_i]:
-                            # print("start label", batch.entity_labels[b, curr_i], "at",curr_i)
-                            entity_boundary[b, curr_i] = curr_i
-                            continue
-                    entity_boundary[b, curr_i] =  entity_boundary[b, curr_i-1] 
+            for curr_i in range(1, context_size-1): # no [CLS], no [SEP]
+
+                curr_logits, tables = model(batch.encodings, batch.ctx_masks, 
+                    psudo_pred.clone(), tables, entity_boundary, curr_i, batch.token_masks)
                 # compute loss and optimize parameters
-                local_loss = compute_loss.compute(tables, batch.entity_labels, curr_i)
+                if curr_logits.nelement() != 0:
+                    local_loss = compute_loss.compute(curr_logits, curr_i, batch.token_masks, batch.entity_labels)
 
                 # logging
                 iteration += 1
@@ -247,7 +239,7 @@ class SpERTTrainer(BaseTrainer):
 
                 # run model (forward pass)
                 entity_clf, entity_path, rel_clf, rels = model(batch.encodings, batch.ctx_masks, batch.entity_masks,
-                                                  batch.entity_sizes, batch.tokens, batch.entity_spans, batch.entity_sample_masks, evaluate=True)
+                                                  batch.entity_sizes, batch.token_masks, batch.entity_spans, batch.entity_sample_masks, evaluate=True)
 
                 # evaluate batch
                 evaluator.eval_batch(entity_clf, entity_path, rel_clf, rels, batch)

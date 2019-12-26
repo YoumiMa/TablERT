@@ -17,26 +17,25 @@ class SpERTLoss(Loss):
         self._scheduler = scheduler
         self._max_grad_norm = max_grad_norm
 
-    def compute(self, entity_logits, entity_labels, curr_i):
+    def compute(self, entity_logits, curr_i, token_masks, entity_labels):
         # entity loss
+        curr_token = token_masks[:, curr_i]
+        batch_size = entity_labels.shape[0]
 
-        curr_entity_labels = entity_labels.clone()
-        curr_entity_labels = curr_entity_labels[:, :curr_i+1].view(curr_i+1)
-        curr_entity_logits = entity_logits.clone()
-        curr_entity_logits = curr_entity_logits[:, :curr_i+1, :].view(curr_i+1, curr_entity_logits.shape[2])
-        # print("logits:", curr_entitsy_logits.argmax(dim=1))
-        # print("gold:", curr_entity_labels)
+        curr_label = torch.masked_select(entity_labels, curr_token)
+        curr_label = curr_label.view(batch_size, -1)
+        curr_label = curr_label.unique(dim=-1)
 
-        prev_loss =  self._entity_criterion(curr_entity_logits, curr_entity_labels)
-        prev_loss = prev_loss.sum() / prev_loss.shape[-1]
-        # print(curr_entity_logits[-1, :].unsqueeze(0), curr_entity_labels[-1])
-        entity_loss = self._entity_criterion(curr_entity_logits[-1, :].unsqueeze(0), curr_entity_labels[-1].unsqueeze(0))
+        # print("logits:", entity_logits.argmax(dim=1))
+        # print("curr_label:", curr_label)
+
+        entity_loss = self._entity_criterion(entity_logits, curr_label.squeeze())
         entity_loss = entity_loss.sum() / entity_loss.shape[-1]
         # print("loss:", entity_loss)
 
         train_loss = entity_loss
 
-        train_loss.backward(retain_graph=True)
+        train_loss.backward()
         torch.nn.utils.clip_grad_norm_(self._model.parameters(), self._max_grad_norm)
         self._optimizer.step()
         self._scheduler.step()
