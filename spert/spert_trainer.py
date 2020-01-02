@@ -166,6 +166,12 @@ class SpERTTrainer(BaseTrainer):
 
         self._sampler.join()
 
+    def _get_label_mask(self, token_masks:torch.Tensor, curr_i: int):
+        curr_token = token_masks[:, curr_i]
+        label_mask = curr_token.any(1)
+        
+        return label_mask, curr_token
+
     def _get_prev_mask(self, prev_i, curr_i, ctx_masks):
 
         prev_masks = torch.zeros_like(ctx_masks)
@@ -204,7 +210,7 @@ class SpERTTrainer(BaseTrainer):
                 prev_mask = self._get_prev_mask(prev_i, curr_i, batch.ctx_masks)
 
                 curr_logits, tables = model(batch.encodings, batch.ctx_masks, 
-                    batch.entity_labels, tables, batch.token_masks)
+                    batch.entity_labels, tables, curr_i, prev_mask, batch.token_masks)
 
                 psudo_pred[:, curr_i] = curr_logits.argmax(dim=1)
                 
