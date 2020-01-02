@@ -23,15 +23,19 @@ def get_token(h: torch.tensor, token_mask: torch.tensor):
 
     emb_size = h.shape[-1]
     batch_size = h.shape[0]
+    token_h = []
+    # for each batch, get the contextualized embedding of token (maxpooling)
+    for i in range(batch_size):
+        subtokens = h[i,token_mask[i]]
 
-    token_mask = token_mask.unsqueeze(2).repeat(1, 1, emb_size)
-    token_h = torch.masked_select(h, token_mask).view(batch_size, -1, emb_size)
-    # get contextualized embedding of given token (maxpooling)
-    print("picked:", token_mask)
-    if token_h.nelement() != 0:
-        token_h = token_h.max(dim=1)[0]
+        if subtokens.nelement() == 0:
+            subtokens = torch.zeros(emb_size, dtype=torch.float).cuda()
+        else:
+            subtokens = subtokens.max(dim=0)[0]
+        
+        token_h.append(subtokens)
 
-    return token_h
+    return torch.stack(token_h)
 
 
 class SpERT(BertPreTrainedModel):
@@ -49,7 +53,7 @@ class SpERT(BertPreTrainedModel):
         # layers
         self.entity_label_embedding = nn.Embedding(entity_labels , entity_label_embedding)
         self.rel_classifier = nn.Linear(config.hidden_size * 5, relation_labels)
-        self.entity_classifier = nn.Linear(config.hidden_size , entity_labels)
+        self.entity_classifier = nn.Linear(config.hidden_size * 2, entity_labels)
         self.crf = torchcrf.CRF(entity_labels)
         self.dropout = nn.Dropout(prop_drop)
 
@@ -67,9 +71,43 @@ class SpERT(BertPreTrainedModel):
             for param in self.bert.parameters():
                 param.requires_grad = False
 
+    def _foraward_train_batch(self, h: torch.tensor, token_mask: torch.tensor, 
+                curr_index: int, prev_mask: torch.tensor):
+
+        curr_repr = get_token(h, token_mask[:, curr_index])
+        # maxpool between previous entity and current position.
+
+        masked_repr = prev_mask.unsqueeze(2).float() * h
+        masked_repr_pool = masked_repr.max(dim=1)[0]
+
+        # previous labels.
+        # prev_labels = []
+        # prev_entity = entity_gt[i, prev_mask[i]]
+        # prev_embedding = self.entity_label_embedding(prev_entity)
+        # prev_embedding = prev_embedding[-1]
+        # # print(prev_embedding.shape)
+        # # prev_embedding = prev_embedding.sum(dim=0)/prev_mask.sum()
+        # prev_labels.append(prev_embedding)
+
+
+        # # average pool between label embeddings.
+        # prev_label_pool = (prev_labels * mask.unsqueeze(2)).sum(dim=1)
+        # if mask.sum() != 0:
+        #     prev_label_pool /= mask.sum().item()
+
+
+
+        entity_repr = torch.cat([curr_repr, masked_repr_pool], dim=1)
+        # entity_repr = prev_labels
+        entity_repr = self.dropout(entity_repr)
+
+        entity_logits = self.entity_classifier(entity_repr)
+
+        return entity_logits
+
     def _forward_train(self, encodings: torch.tensor, context_mask: torch.tensor, 
                         entity_gt: torch.tensor, tables: torch.tensor, 
-                        entity_boundary: torch.tensor, curr_index: int, token_mask: torch.tensor):
+                        curr_index: int, prev_mask:torch.tensor, token_mask: torch.tensor):
         
         # get contextualized token embeddings from last transformer layer
         context_mask = context_mask.float()
@@ -77,61 +115,10 @@ class SpERT(BertPreTrainedModel):
 
         batch_size = encodings.shape[0]
         context_size = encodings.shape[1]
-
-        # print(ids)
-        # representation of current encoding.
-        curr_repr = get_token(h, token_mask[:, curr_index])
-
-
-        # pick out from previous entity to curr_index.
-        mask = torch.zeros_like(encodings, dtype=torch.float)
-
-        for i in range(batch_size):
-            prev = 0
-            boundary_mask = entity_boundary[i,:curr_index]
-            if boundary_mask.nelement() != 0:
-                x = boundary_mask < entity_boundary[i,curr_index-1]
-                # print(x)
-                nonzeros = x.nonzero().squeeze()
-                # print(nonzeros)
-                if nonzeros.nelement() != 0:
-                    prev = nonzeros.max()
-            mask[i, prev+1: curr_index] = 1
-
-
-        # print("current:", curr_index)
-        # print("gold tag seq:", entity_gt)
-        # print("entity boundary:", entity_boundary)
-        # print(mask)
-
-
-        # maxpool between previous entity and current position.
-        masked_repr = mask.unsqueeze(2) * h
-        masked_repr_pool = masked_repr.max(dim=1)[0]
-
-        # previous labels.
-        prev_labels = self.entity_label_embedding(entity_gt)
-        prev_label = torch.index_select(prev_labels, 1, entity_boundary[:,prev].clone()).view(batch_size, -1)
-        # print("labels:", prev_labels)
-        # print("previous label:", prev, prev_label)
-        # print("=============")
-        # average pool between label embeddings.
-        prev_label_pool = (prev_labels * mask.unsqueeze(2)).sum(dim=1)
-        if mask.sum() != 0:
-            prev_label_pool /= mask.sum().item()
-
-
-
-        # entity_repr = torch.cat([curr_repr, masked_repr_pool, prev_label, prev_label_pool], dim=1)
-        entity_repr = curr_repr
-
-        entity_repr = self.dropout(entity_repr)
-
-        entity_logits = self.entity_classifier(entity_repr)
-
-        if entity_logits.nelement() != 0:
-            tables[:, curr_index] = entity_logits
         
+        tables[:, curr_index] = entity_logits
+        
+
         return entity_logits, tables
 
     def _forward_eval(self, encodings: torch.tensor, context_mask: torch.tensor, entity_masks: torch.tensor,

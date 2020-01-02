@@ -17,27 +17,47 @@ class SpERTLoss(Loss):
         self._scheduler = scheduler
         self._max_grad_norm = max_grad_norm
 
-    def compute(self, entity_logits, curr_i, token_masks, entity_labels):
+
+    def local_score(self, entity_logits, label_mask):
+        m = torch.nn.Softmax()
+        score = m(entity_logits[label_mask])
+        # print("local:", score)
+
+        return score
+
+    def compute(self, score, entity_logits, curr_token, label_mask, entity_labels):
         # entity loss
-        curr_token = token_masks[:, curr_i]
+
+
         batch_size = entity_labels.shape[0]
+        prev_labels = []
+        curr_labels = []
 
-        curr_label = torch.masked_select(entity_labels, curr_token)
-        curr_label = curr_label.view(batch_size, -1)
-        curr_label = curr_label.unique(dim=-1)
+        local_score = self.local_score(entity_logits, label_mask)
+        score += local_score
+        # print("global:", score)
+        for i in range(batch_size):
+            curr_label = entity_labels[i, curr_token[i]]
+            curr_label = curr_label.unique()
+            curr_labels.append(curr_label)   
 
-        # print("logits:", entity_logits.argmax(dim=1))
-        # print("curr_label:", curr_label)
+        curr_labels = torch.cat(curr_labels)
 
-        entity_loss = self._entity_criterion(entity_logits, curr_label.squeeze())
+
+        print("=" * 50)
+
+        beam_sum = torch.sort(score, dim=1, descending=True)[0]
+        # print(beam_sum[:,:2].sum(dim=1))
+        # print(score/beam_sum[:,:2].sum(dim=1))
+        entity_loss = self._entity_criterion(local_score/score, curr_labels)
         entity_loss = entity_loss.sum() / entity_loss.shape[-1]
-        # print("loss:", entity_loss)
-
+        print("logits:", torch.sort(score, dim=1, descending=True))
+        print("curr_label:", curr_labels)
         train_loss = entity_loss
-
-        train_loss.backward()
+        print("loss:", train_loss)
+        train_loss.backward(retain_graph=True)
         torch.nn.utils.clip_grad_norm_(self._model.parameters(), self._max_grad_norm)
         self._optimizer.step()
         self._scheduler.step()
-        self._model.zero_grad()
-        return train_loss.item()
+        # self._model.zero_grad()
+        return train_loss.item(), score
