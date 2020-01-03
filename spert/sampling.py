@@ -255,6 +255,7 @@ def _create_train_sample(doc, context_size, shuffle = False):
     # positive entities
     entity_spans, entity_types, entity_labels = [], [], []
     for e in doc.entities:
+        # print(e.phrase, e.tokens)
         entity_spans.append(e.span)
         entity_types.append(e.entity_type)
         entity_labels.append(create_entity_mask(*e.span, context_size).to(torch.long))       

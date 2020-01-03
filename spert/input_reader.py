@@ -239,6 +239,7 @@ class JsonInputReader(BaseInputReader):
                     entity_type = self._entity_types[jtag[2:]]
                     end = idx + 1
                     tokens = doc_tokens[start:end]
+                    print(start, end, [t.phrase for t in doc_tokens])
                     phrase = " ".join([t.phrase for t in tokens])
                     entity = dataset.create_entity(entity_type, entity_labels, tokens, phrase)
                     entities.append(entity)
@@ -260,7 +261,7 @@ class JsonInputReader(BaseInputReader):
             else:
                 relation_label = self._relation_labels['L-' + jrelation['type']]
             
-            print([e.phrase for e in entities],head_idx, tail_idx)
+            # print([e.phrase for e in entities],head_idx, tail_idx)
             # create relation
             head = entities[head_idx]
             tail = entities[tail_idx]

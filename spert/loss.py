@@ -18,46 +18,48 @@ class SpERTLoss(Loss):
         self._max_grad_norm = max_grad_norm
 
 
-    def local_score(self, entity_logits, label_mask):
-        m = torch.nn.Softmax()
-        score = m(entity_logits[label_mask])
+    def local_score(self, entity_logits):
+        m = torch.nn.LogSoftmax()
+        score = m(entity_logits)
         # print("local:", score)
 
         return score
 
-    def compute(self, score, entity_logits, curr_token, label_mask, entity_labels):
+    def compute(self, entity_logits, entity_labels):
         # entity loss
 
+        train_loss = 0.
+        for b, batch_logits in enumerate(entity_logits):
+            context_size = entity_labels.shape[-1]
+            local_scores = []
+            greedy_path = []
+            ptr = 0
+            for i in range(1, context_size-1): # no [CLS], no [SEP]
+                logits = batch_logits.squeeze(0)[i-1]
+                pred = torch.argmax(logits)
+                gold = entity_labels[b][i]
+                print("pred:", pred, "gold:", gold)
+                # score = self.local_score(logits)
+                # print("score:", score)
+                local_scores.append(logits[gold])
+                greedy_path.append(logits[pred])
 
-        batch_size = entity_labels.shape[0]
-        prev_labels = []
-        curr_labels = []
+                if pred != gold:
+                    ptr = i
+            ptr = context_size - 1
 
-        local_score = self.local_score(entity_logits, label_mask)
-        score += local_score
-        # print("global:", score)
-        for i in range(batch_size):
-            curr_label = entity_labels[i, curr_token[i]]
-            curr_label = curr_label.unique()
-            curr_labels.append(curr_label)   
+            entity_loss = - sum(local_scores)/sum(greedy_path) * ptr
 
-        curr_labels = torch.cat(curr_labels)
+            # print(local_scores, sum(local_scores))
 
 
-        print("=" * 50)
+            train_loss += entity_loss
 
-        beam_sum = torch.sort(score, dim=1, descending=True)[0]
-        # print(beam_sum[:,:2].sum(dim=1))
-        # print(score/beam_sum[:,:2].sum(dim=1))
-        entity_loss = self._entity_criterion(local_score/score, curr_labels)
-        entity_loss = entity_loss.sum() / entity_loss.shape[-1]
-        print("logits:", torch.sort(score, dim=1, descending=True))
-        print("curr_label:", curr_labels)
-        train_loss = entity_loss
         print("loss:", train_loss)
-        train_loss.backward(retain_graph=True)
+        print("=" * 50)
+        train_loss.backward()
         torch.nn.utils.clip_grad_norm_(self._model.parameters(), self._max_grad_norm)
         self._optimizer.step()
         self._scheduler.step()
         # self._model.zero_grad()
-        return train_loss.item(), score
+        return train_loss.item()

@@ -166,21 +166,6 @@ class SpERTTrainer(BaseTrainer):
 
         self._sampler.join()
 
-    def _get_label_mask(self, token_masks:torch.Tensor, curr_i: int):
-        curr_token = token_masks[:, curr_i]
-        label_mask = curr_token.any(1)
-        
-        return label_mask, curr_token
-
-    def _get_prev_mask(self, prev_i, curr_i, ctx_masks):
-
-        prev_masks = torch.zeros_like(ctx_masks)
-        for b in range(prev_masks.shape[0]):
-            prev_masks[b, prev_i[b]:curr_i] = 1
-
-        return prev_masks
-
-
     def _train_epoch(self, model: torch.nn.Module, compute_loss: Loss, 
                     optimizer: Optimizer, dataset: Dataset,
                      updates_epoch: int, epoch: int, context_size: int, 
@@ -203,38 +188,16 @@ class SpERTTrainer(BaseTrainer):
             
             model.train()
             batch = batch.to(self._device)
+ 
+            logits = model(batch.encodings, batch.ctx_masks, batch.entity_labels, batch.token_masks, start_labels)
+            loss = compute_loss.compute(logits, batch.entity_labels)
 
-            # forward step
-            for curr_i in range(1, context_size-1): # no [CLS], no [SEP]
-                
-                prev_mask = self._get_prev_mask(prev_i, curr_i, batch.ctx_masks)
+            # logging
+            iteration += 1
+            global_iteration = epoch * updates_epoch + iteration
 
-                curr_logits, tables = model(batch.encodings, batch.ctx_masks, 
-                    batch.entity_labels, tables, curr_i, prev_mask, batch.token_masks)
-
-                psudo_pred[:, curr_i] = curr_logits.argmax(dim=1)
-                
-                #### Update prev_i (TODO: Put into a function.)
-                for i in range(self.args.train_batch_size):
-                    if batch.entity_labels[i, curr_i] == 0:
-                        prev_i[i] = curr_i
-                    elif batch.entity_labels[i, curr_i] in start_labels and batch.entity_labels[i, curr_i] != batch.entity_labels[i, curr_i-1]:
-                        prev_i[i] = curr_i 
-                ####
-
-                # compute loss and optimize parameters
-                # print(curr_i, prev_i)
-                label_mask, curr_token = self._get_label_mask(batch.token_masks, curr_i)
-                # print(label_mask)
-                if label_mask.any():
-                    loss, score = compute_loss.compute(score, curr_logits, curr_token, label_mask, batch.entity_labels)
-
-                    # logging
-                    iteration += 1
-                    global_iteration = epoch * updates_epoch + iteration
-
-                    if global_iteration % self.args.train_log_iter == 0:
-                        self._log_train(optimizer, loss, epoch, iteration, global_iteration, dataset.label)
+            if global_iteration % self.args.train_log_iter == 0:
+                self._log_train(optimizer, loss, epoch, iteration, global_iteration, dataset.label)
 
         return iteration
 
