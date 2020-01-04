@@ -6,7 +6,7 @@ import torch
 from sklearn.metrics import precision_recall_fscore_support as prfs
 from transformers import BertTokenizer
 
-from spert.entities import Document, Dataset, EntityLabel
+from spert.entities import Document, Dataset, EntityLabel, EntityType
 from spert.input_reader import JsonInputReader
 from spert.opt import jinja2
 from spert.sampling import EvalTensorBatch
@@ -40,66 +40,36 @@ class Evaluator:
         self._gt_entities = []  # ground truth
         self._pred_entities = []  # prediction
 
-        self._pseudo_entity_type = EntityType('Entity', 1, 'Entity', 'Entity')  # for span only evaluation
+        self._pseudo_entity_label = EntityLabel('Entity', 1, 'Entity', 'Entity')
+        self._pseudo_entity_type = EntityType([self._pseudo_entity_label], 1, 'Entity', 'Entity')  # for span only evaluation
 
         self._convert_gt(self._dataset.documents)
 
-    def eval_batch(self, batch_entity_clf: torch.tensor, batch_entity_path: torch.tensor, batch_rel_clf: torch.tensor,
-                   batch_rels: torch.tensor, batch: EvalTensorBatch):
-        batch_size = batch_rel_clf.shape[0]
-        rel_class_count = batch_rel_clf.shape[2]
-
-        # get maximum activation (index of predicted entity type)
+    def eval_batch(self, batch_entity_clf: List[torch.tensor], 
+                    batch_rel_clf: List[torch.tensor],
+                   batch: EvalTensorBatch):
+        batch_size = len(batch_entity_clf)
         
-        # softmax
-        # batch_entity_types = batch_entity_clf.argmax(dim=-1)
-        # CRF
-        batch_entity_types = batch_entity_path.view(batch_size, -1)
-        # print(batch_entity_types)
-        # apply entity sample mask
-        # batch_entity_types *= batch.entity_sample_masks.long()
-        batch_rel_clf = batch_rel_clf.view(batch_size, -1)
-
-        # apply threshold to relations
-        if self._rel_filter_threshold > 0:
-            batch_rel_clf[batch_rel_clf < self._rel_filter_threshold] = 0
-
         for i in range(batch_size):
             # get model predictions for sample
+            entity_clf = batch_entity_clf[i]
             rel_clf = batch_rel_clf[i]
-            entity_types = batch_entity_types[i]
 
-            # get predicted relation labels and corresponding entity pairs
-            rel_nonzero = rel_clf.nonzero().view(-1)
-            rel_scores = rel_clf[rel_nonzero]
+            entity_scores, entity_preds = torch.max(entity_clf, dim=2)
 
-            rel_types = (rel_nonzero % rel_class_count) + 1  # model does not predict None class (+1)
-            rel_indices = rel_nonzero // rel_class_count
+            entity_preds = torch.ceil(entity_preds.float() / 4)
+            pred_entities = self._convert_pred_entities_(entity_preds.squeeze(0), entity_scores.squeeze(0))
+            self._pred_entities.append(pred_entities)
 
-            rels = batch_rels[i][rel_indices]
+            rel_scores, rel_preds = torch.max(rel_clf, dim=2)
 
-            # get masks of entities in relation
-            rel_entity_spans = batch.entity_spans[i][rels].long()
+            # print("rel_preds:", rel_preds)
+            rel_preds_split = rel_preds.squeeze(0).split([i for i in range(entity_preds.shape[-1]-1, 0, -1)],dim=0)
 
-            # get predicted entity types
-            rel_entity_types = torch.zeros([rels.shape[0], 2])
-            # print(batch.entity_spans.shape)
-            if rels.shape[0] != 0:
-                idx = [batch.entity_spans[i][rels[j]] for j in range(rels.shape[0])]
-                rel_entity_types = torch.stack([entity_types[e.transpose(1,0)[0]] for e in idx])
-            # print(rel_types, rel_entity_spans, rel_entity_types, rel_scores)
-            # convert predicted relations for evaluation
-            sample_pred_relations = self._convert_pred_relations(rel_types, rel_entity_spans,
-                                                                 rel_entity_types, rel_scores)
-            self._pred_relations.append(sample_pred_relations)
+            pred_relations = self._convert_pred_relations(rel_preds_split, rel_scores.squeeze(0), 
+                                                            pred_entities)
+            self._pred_relations.append(pred_relations)    
 
-            # get entities that are not classified as 'None'
-            # print(batch_entity_clf[i].shape, entity_types.shape)  
-            entity_scores = torch.gather(batch_entity_clf[i], 1, entity_types.unsqueeze(1).cuda()).view(-1)
-      
-
-            sample_pred_entities = self._convert_pred_entities_(entity_types, entity_scores)
-            self._pred_entities.append(sample_pred_entities)
 
     def compute_scores(self):
         print("Evaluation")
@@ -112,19 +82,22 @@ class Evaluator:
         gt, pred = self._convert_by_setting(merged_gt, merged_pred, include_entity_types=True)
         ner_eval = self._score(gt, pred, print_results=True)
 
-        # print("")
-        # print("--- Relations ---")
-        # print("")
-        # print("Without NER")
-        # gt, pred = self._convert_by_setting(self._gt_relations, self._pred_relations, include_entity_types=False)
-        # rel_eval = self._score(gt, pred, print_results=True)
+        print("")
+        print("--- Relations ---")
+        print("")
+        print("Without NER")
+        # print("gt relations:", self._gt_relations)
+        gt, pred = self._convert_by_setting(self._gt_relations, self._pred_relations, include_entity_types=False)
+        # print("gt:", [r[0][2].verbose_name for r in gt])
+        # print("pred:", [r[0][2].verbose_name for r in pred])
+        rel_eval = self._score(gt, pred, print_results=True)
 
-        # print("")
-        # print("With NER")
-        # gt, pred = self._convert_by_setting(self._gt_relations, self._pred_relations, include_entity_types=True)
-        # rel_ner_eval = self._score(gt, pred, print_results=True)
+        print("")
+        print("With NER")
+        gt, pred = self._convert_by_setting(self._gt_relations, self._pred_relations, include_entity_types=True)
+        rel_ner_eval = self._score(gt, pred, print_results=True)
 
-        return ner_eval
+        return ner_eval, rel_eval, rel_ner_eval
 
     def store_examples(self):
         if jinja2 is None:
@@ -196,11 +169,11 @@ class Evaluator:
             # convert ground truth relations and entities for precision/recall/f1 evaluation
             sample_gt_relations = [rel.as_tuple() for rel in gt_relations]
             sample_gt_entities = [entity.as_tuple() for entity in gt_entities]
-
+            # print(sample_gt_relations)
             self._gt_relations.append(sample_gt_relations)
             self._gt_entities.append(sample_gt_entities)
 
-    def _convert_pred_entities(self, pred_types: torch.tensor, pred_spans: torch.tensor, pred_scores: torch.tensor):
+    def _convert_pred_entities(self, pred_types: torch.tensor, pred_scores: torch.tensor):
         converted_preds = []
 
         for i in range(pred_types.shape[0]):
@@ -231,55 +204,70 @@ class Evaluator:
     def _convert_pred_entities_(self, pred_types: torch.tensor, pred_scores: torch.tensor):
         converted_preds = []
         # print(pred_types)
+        
+        curr_type = 0
         start = 0
-        for i in range(pred_types.shape[0]-1):
-            label_idx = pred_types[i].item()
-            entity_type = self._input_reader.get_entity_type(label_idx)
+
+        for i in range(pred_types.shape[0]):
+            type_idx = pred_types[i].item()
+            # print("entity type:", curr_type)
             score = pred_scores[i].item()
-            if pred_types[i+1] != pred_types[i]:
-                if label_idx == 0:
-                    start = i + 1
-                else:
-                    converted_pred = (start, i+1, entity_type, score)
+            if type_idx != curr_type:
+                if curr_type != 0:
+                    converted_pred = (start+1, i+1, entity_type, score)
+                    # print("appended:", start+1, i+1, entity_type.index)
                     converted_preds.append(converted_pred)
-                    start = i + 1
-        # print('???????',converted_preds)
+                start = i
+                curr_type = type_idx
+                entity_type = self._input_reader.get_entity_type(curr_type)
+        if curr_type != 0:
+            converted_pred = (start+1, i+2 , entity_type, score)
+            # print("appended:", start+1, i+2, entity_type.index)
+            converted_preds.append(converted_pred)            
+
+        # print('???????',[preds[2].index for preds in converted_preds])
         return converted_preds
 
-    def _convert_pred_relations(self, pred_rel_types: torch.tensor, pred_entity_spans: torch.tensor,
-                                pred_entity_types: torch.tensor, pred_scores: torch.tensor):
+    def _convert_pred_relations(self, pred_types: List[torch.tensor], pred_scores: torch.tensor, 
+                                pred_entities: List[tuple]):
         converted_rels = []
-        check = set()
+        # print(pred_types)
+        for i in range(len(pred_types)):
+            for j in range(pred_types[i].shape[-1]):
+                label_idx = pred_types[i][j].float()
+                if label_idx != 0:    
+                    pred_rel_type = self._input_reader.get_relation_type(torch.ceil(label_idx/2).item())
+                    if label_idx in self._input_reader._right_rel_label: # R-X
+                        head_idx = i 
+                        tail_idx = i + j + 1
+                    else: # L-X
+                        head_idx = i + j + 1
+                        tail_idx = i
+                    # print(head_idx, tail_idx)
+                    head_entity = self._find_entity(head_idx, pred_entities)
+                    # print("head entity:", head_entity)
+                    tail_entity = self._find_entity(tail_idx, pred_entities)
+                    # print("tail entity:", tail_entity)
+                    if head_entity == None or tail_entity == None:
+                        continue
+                    pred_head_type = head_entity[2]
+                    pred_tail_type = tail_entity[2]
+                    score = pred_scores[i].item()
 
-        for i in range(pred_rel_types.shape[0]):
-            label_idx = pred_rel_types[i].item()
-            pred_rel_type = self._input_reader.get_relation_type(label_idx)
-            pred_head_type_idx, pred_tail_type_idx = pred_entity_types[i][0].item(), pred_entity_types[i][1].item()
-            pred_head_type = self._input_reader.get_entity_type(pred_head_type_idx)
-            pred_tail_type = self._input_reader.get_entity_type(pred_tail_type_idx)
-            score = pred_scores[i].item()
+                    head_start, head_end = head_entity[0], head_entity[1]
+                    tail_start, tail_end = tail_entity[0], tail_entity[1]
+                    converted_rel = ((head_start, head_end, pred_head_type),
+                                     (tail_start, tail_end, pred_tail_type), pred_rel_type, score)
 
-            spans = pred_entity_spans[i]
-            head_start, head_end = spans[0].tolist()
-            tail_start, tail_end = spans[1].tolist()
-            converted_rel = ((head_start, head_end, pred_head_type),
-                             (tail_start, tail_end, pred_tail_type), pred_rel_type)
-            converted_rel = self._adjust_rel(converted_rel)
-
-            if converted_rel not in check:
-                check.add(converted_rel)
-                converted_rels.append(tuple(list(converted_rel) + [score]))
-
+                    converted_rels.append(converted_rel)
+        # print(converted_rels)
         return converted_rels
 
-    def _adjust_rel(self, rel: Tuple):
-        adjusted_rel = rel
-        if rel[-1].symmetric:
-            head, tail = rel[:2]
-            if tail[0] < head[0]:
-                adjusted_rel = tail, head, rel[-1]
-
-        return adjusted_rel
+    def _find_entity(self, idx, entities):
+        for e in entities:
+            if e[0]-1 <= idx < e[1]-1 :
+                return e
+        return None
 
     def _convert_by_setting(self, gt: List[List[Tuple]], pred: List[List[Tuple]],
                             include_entity_types: bool = True, include_score: bool = False):
@@ -304,9 +292,9 @@ class Evaluator:
         converted_gt, converted_pred = [], []
 
         for sample_gt, sample_pred in zip(gt, pred):
+
             converted_gt.append([convert(t) for t in sample_gt])
             converted_pred.append([convert(t) for t in sample_pred])
-
         return converted_gt, converted_pred
 
     def _score(self, gt: List[List[Tuple]], pred: List[List[Tuple]], print_results: bool = False):
@@ -315,6 +303,7 @@ class Evaluator:
         gt_flat = []
         pred_flat = []
         types = set()
+
 
         for (sample_gt, sample_pred) in zip(gt, pred):
             union = set()
@@ -336,14 +325,16 @@ class Evaluator:
                 else:
                     pred_flat.append(0)
 
-
+        # print("gt_flat:", gt_flat)
+        # print("pred_flat:", pred_flat)
+        # print("types:", [t.short_name for t in types])
         metrics = self._compute_metrics(gt_flat, pred_flat, types, print_results)
         return metrics
 
     def _compute_metrics(self, gt_all, pred_all, types, print_results: bool = False):
-        labels = [int(t.index/4) for t in types]
-        gt_all = [int(gt/4) for gt in gt_all]
-        pred_all = [int(pred/4) for pred in pred_all]
+        labels = [t.index for t in types]
+        gt_all = [gt for gt in gt_all]
+        pred_all = [pred for pred in pred_all]
         per_type = prfs(gt_all, pred_all, labels=labels, average=None)
         micro = prfs(gt_all, pred_all, labels=labels, average='micro')[:-1]
         macro = prfs(gt_all, pred_all, labels=labels, average='macro')[:-1]
@@ -384,7 +375,7 @@ class Evaluator:
         print(results_str)
 
     def _get_row(self, data, label):
-        row = [label[2:]]
+        row = [label]
         for i in range(len(data) - 1):
             row.append("%.2f" % (data[i] * 100))
         row.append(data[3])
@@ -395,6 +386,7 @@ class Evaluator:
         encoding = doc.encoding
 
         gt, pred = self._convert_by_setting([gt], [pred], include_entity_types=include_entity_types, include_score=True)
+
         gt, pred = gt[0], pred[0]
 
         # get micro precision/recall/f1 scores
@@ -406,7 +398,7 @@ class Evaluator:
             precision, recall, f1 = [100] * 3
 
         scores = [p[-1] for p in pred]
-        pred = [p[:-1] for p in pred]
+        # pred = [p[:-1] for p in pred]
         union = set(gt + pred)
 
         # true positives
@@ -418,6 +410,7 @@ class Evaluator:
 
         for s in union:
             type_verbose = s[2].verbose_name
+            # print("vvvv:", type_verbose)
 
             if s in gt:
                 if s in pred:
@@ -433,6 +426,7 @@ class Evaluator:
         fp = sorted(fp, key=lambda p: p[-1], reverse=True)
 
         text = self._prettify(self._text_encoder.decode(encoding))
+        # print("ttttpppp:", tp)
         return dict(text=text, tp=tp, fn=fn, fp=fp, precision=precision, recall=recall, f1=f1, length=len(doc.tokens))
 
     def _entity_to_html(self, entity: Tuple, encoding: List[int]):
@@ -490,5 +484,6 @@ class Evaluator:
         with open(os.path.join(SCRIPT_PATH, template_path)) as f:
             template = jinja2.Template(f.read())
 
+        # print("example:", examples)
         # write to disc
         template.stream(examples=examples).dump(file_path)

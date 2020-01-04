@@ -20,6 +20,8 @@ from spert.trainer import BaseTrainer
 
 from typing import List
 
+import math
+
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 
 
@@ -181,6 +183,7 @@ class SpERTTrainer(BaseTrainer):
         model.zero_grad()
 
         iteration = 0
+        global_iteration = epoch * updates_epoch
         total = dataset.document_count // self.args.train_batch_size
 
 
@@ -188,10 +191,18 @@ class SpERTTrainer(BaseTrainer):
             
             model.train()
             batch = batch.to(self._device)
- 
-            logits = model(batch.encodings, batch.ctx_masks, batch.entity_labels, batch.token_masks, start_labels)
-            loss = compute_loss.compute(logits, batch.entity_labels)
+            # print("iteration:", global_iteration)
+            if global_iteration < self.args.iter_before_rel:
+                # do entity detection only.
+                rel_labels = None
+                allow_rel = False
+            else:
+                rel_labels = batch.rel_labels
+                allow_rel = True
 
+            entity_logits, rel_logits = model(batch.encodings, batch.ctx_masks, batch.token_masks, start_labels, allow_rel)
+
+            loss = compute_loss.compute(entity_logits, batch.entity_labels, rel_logits, rel_labels)                
             # logging
             iteration += 1
             global_iteration = epoch * updates_epoch + iteration
@@ -215,7 +226,7 @@ class SpERTTrainer(BaseTrainer):
                               self._examples_path, epoch, dataset.label)
 
         # create batch sampler
-        sampler = self._sampler.create_eval_sampler(dataset, self.args.eval_batch_size, self.args.max_span_size,
+        sampler = self._sampler.create_eval_sampler(dataset, self.args.eval_batch_size, 
                                                     input_reader.context_size, truncate=False)
 
         with torch.no_grad():
@@ -228,11 +239,11 @@ class SpERTTrainer(BaseTrainer):
                 batch = batch.to(self._device)
 
                 # run model (forward pass)
-                entity_clf, entity_path, rel_clf, rels = model(batch.encodings, batch.ctx_masks, batch.entity_masks,
-                                                  batch.entity_sizes, batch.token_masks, batch.entity_spans, batch.entity_sample_masks, evaluate=True)
+                entity_clf, rel_clf = model(batch.encodings, batch.ctx_masks, batch.token_masks, 
+                    input_reader._start_entity_label, evaluate=True)
 
                 # evaluate batch
-                evaluator.eval_batch(entity_clf, entity_path, rel_clf, rels, batch)
+                evaluator.eval_batch(entity_clf, rel_clf, batch)
 
         global_iteration = epoch * updates_epoch + iteration
         ner_eval, rel_eval, rel_ner_eval = evaluator.compute_scores()

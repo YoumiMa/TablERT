@@ -75,11 +75,11 @@ class RelationType:
 
     def __eq__(self, other):
         if isinstance(other, RelationType):
-            return self._identifiers == other._identifiers
+            return self.identifiers == other.identifiers
         return False
 
     def __hash__(self):
-        return hash(self._identifiers)
+        return hash(self.identifiers)
 
 
 
@@ -121,7 +121,7 @@ class EntityLabel:
 class EntityType:
     # General type of entity containing different labels. 'Peop': ['B-Peop', 'I-Peop', 'L-Peop', 'U-Peop']
     def __init__(self, labels, index, short_name, verbose_name):
-        
+
         self._labels = labels
         self._index = index
         self._short_name = short_name
@@ -148,11 +148,11 @@ class EntityType:
 
     def __eq__(self, other):
         if isinstance(other, EntityType):
-            return self._identifiers == other._identifiers
+            return self.identifiers == other.identifiers
         return False
 
     def __hash__(self):
-        return hash(self._identifiers)
+        return hash(self.identifiers)
 
 
 class Token:
@@ -445,6 +445,9 @@ class Dataset:
     def create_entity(self, entity_type, entity_labels, tokens, phrase) -> Entity:
 
         mention = Entity(self._eid, entity_type, entity_labels, tokens, phrase)
+        if len(tokens) == 0:
+            print("!!!!!")
+            exit(-1)
         self._entities[self._eid] = mention
         self._eid += 1
         return mention

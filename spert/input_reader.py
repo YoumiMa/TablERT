@@ -11,7 +11,7 @@ from spert import util
 from spert.entities import Dataset, EntityLabel, RelationLabel, EntityType, RelationType, Entity, Relation, Document
 
 E_PREFIX = {'B-', 'I-', 'L-', 'U-'}
-R_PREFIX = {'L-', 'R-'} # relation Pointing to left/right
+R_PREFIX = {'R-', 'L-'} # relation Pointing to left/right
 
 class BaseInputReader(ABC):
     def __init__(self, types_path: str, tokenizer: BertTokenizer, logger: Logger = None):
@@ -29,6 +29,7 @@ class BaseInputReader(ABC):
         self._idx2relation_type = OrderedDict()
 
         self._start_entity_label = [0]
+        self._right_rel_label = []
         # entities
         # add 'None' entity label
         none_entity_label = EntityLabel('O', 0, 'O', 'No Entity')
@@ -71,6 +72,8 @@ class BaseInputReader(ABC):
                 self._relation_labels[pre + key] = relation_label
                 self._idx2relation_label[2 * i + j + 1] = relation_label
                 relation_labels.append(relation_label)
+                if pre == 'R-':
+                    self._right_rel_label.append(2 * i + j + 1)
             relation_type = RelationType(relation_labels, i+1, v['short'], v['verbose'])
             self._relation_types[key] = relation_type
             self._idx2relation_type[i+1] = relation_type
@@ -97,6 +100,16 @@ class BaseInputReader(ABC):
     def get_relation_label(self, idx) -> RelationLabel:
         relation = self._idx2relation_label[idx]
         return relation
+
+    def get_entity_type(self, idx) -> EntityType:
+        entity = self._idx2entity_type[idx]
+        return entity
+
+    def get_relation_type(self, idx) -> RelationType:
+        relation = self._idx2relation_type[idx]
+        return relation
+
+
 
     def _calc_context_size(self, datasets: Iterable[Dataset]):
         sizes = []
@@ -193,7 +206,7 @@ class JsonInputReader(BaseInputReader):
 
         # parse tokens
         doc_tokens, doc_encoding = self._parse_tokens(jtokens, dataset)
-
+        print([t.phrase for t in doc_tokens])
         # parse entity mentions
         entities = self._parse_entities(jtags, doc_tokens, dataset)
 
