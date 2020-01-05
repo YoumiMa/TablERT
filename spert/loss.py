@@ -34,7 +34,7 @@ class SpERTLoss(Loss):
             context_size = entity_labels.shape[-1]
             local_scores = []
             greedy_path = []
-            ptr = 0
+            ptr = []
             for i in range(1, context_size-1): # no [CLS], no [SEP]
                 logits = batch_logits.squeeze(0)[i-1]
                 pred = torch.argmax(logits)
@@ -45,14 +45,18 @@ class SpERTLoss(Loss):
                 local_scores.append(logits[gold])
                 greedy_path.append(logits[pred])
 
-                if pred != gold:
-                    ptr = i
+                if pred == gold:
+                    ptr.append(i-1)
 
+            if ptr == []:
+                ptr.append(context_size)
             # entity_loss = - sum(local_scores)/sum(greedy_path) * ptr
-            entity_loss = - sum(local_scores)/sum(greedy_path)
+            for p in ptr:
+                train_loss += - sum(local_scores[:p+1])/sum(greedy_path[:p+1])
+            # train_loss /= context_size
 
-            # print(local_scores, sum(local_scores))
-            train_loss += entity_loss
+            # # print(local_scores, sum(local_scores))
+            # train_loss += entity_loss
 
         if rel_logits != []:
             for b, batch_logits in enumerate(rel_logits):

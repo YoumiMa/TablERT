@@ -33,14 +33,14 @@ def get_token(h: torch.tensor, token_mask: torch.tensor):
     return subtokens
 
 
-class SpERT(BertPreTrainedModel):
+class TableF(BertPreTrainedModel):
     """ Span-based model to jointly extract entities and relations """
 
     def __init__(self, config: BertConfig, tokenizer: BertTokenizer,
                  relation_labels: int, entity_labels: int,
                  entity_label_embedding:int,  prop_drop: float, 
                  freeze_transformer: bool, max_pairs: int = 100):
-        super(SpERT, self).__init__(config)
+        super(TableF, self).__init__(config)
 
         # BERT model
         self.bert = BertModel(config)
@@ -163,6 +163,8 @@ class SpERT(BertPreTrainedModel):
         h = self.bert(input_ids=encodings, attention_mask=context_mask)[0]
 
         batch_size = encodings.shape[0]
+        # print("encodings:", encodings)
+        # print(context_mask * encodings, (context_mask * encodings).shape)
         context_size = encodings.shape[1]
         all_entity_logits = []
         all_rel_logits = []
@@ -275,26 +277,26 @@ class SpERT(BertPreTrainedModel):
                 entity_logits_batch.append(curr_entity_logits)
 
             all_entity_logits.append(torch.stack(entity_logits_batch, dim=1))
-            # print([e.argmax(dim=2) for e in all_entity_logits])
+            # print(all_entity_logits)
             # print("entity mask:", entity_masks)
             # Relation classification.
-            for i in range(1, context_size-1):
+            # for i in range(1, context_size-1):
 
-                pred_i = torch.argmax(entity_logits_batch[i-1])
-                i_embedding = self.entity_label_embedding(pred_i)
-                # print("i:", i)
-                for j in range(i+1, context_size-1):
+            #     pred_i = torch.argmax(entity_logits_batch[i-1])
+            #     i_embedding = self.entity_label_embedding(pred_i)
+            #     # print("i:", i)
+            #     for j in range(i+1, context_size-1):
 
-                    pred_j = torch.argmax(entity_logits_batch[j-1])
-                    # print("j-1:", j-1, pred_j)
-                    j_embedding = self.entity_label_embedding(pred_j)
+            #         pred_j = torch.argmax(entity_logits_batch[j-1])
+            #         # print("j-1:", j-1, pred_j)
+            #         j_embedding = self.entity_label_embedding(pred_j)
 
-                    curr_rel_logits = self._forward_relation(h[batch], token_mask[batch],
-                                        i, j, i_embedding, j_embedding, entity_masks, True)
-                    # print("i,j,logits", i-1, j-1, curr_rel_logits.argmax(dim=1))
-                    rel_logits_batch.append(curr_rel_logits)
-            # print("length:", len(rel_logits_batch))
-            all_rel_logits.append(torch.stack(rel_logits_batch, dim=1))
+            #         curr_rel_logits = self._forward_relation(h[batch], token_mask[batch],
+            #                             i, j, i_embedding, j_embedding, entity_masks, True)
+            #         # print("i,j,logits", i-1, j-1, curr_rel_logits.argmax(dim=1))
+            #         rel_logits_batch.append(curr_rel_logits)
+            # # print("length:", len(rel_logits_batch))
+            # all_rel_logits.append(torch.stack(rel_logits_batch, dim=1))
                     
             entity_logits_batch = []
             rel_logits_batch = []
@@ -303,7 +305,7 @@ class SpERT(BertPreTrainedModel):
         # apply softmax
         for batch in range(batch_size):
             all_entity_logits[batch] = torch.softmax(all_entity_logits[batch], dim=2)
-            all_rel_logits[batch] = torch.softmax(all_rel_logits[batch], dim=2)
+            # all_rel_logits[batch] = torch.softmax(all_rel_logits[batch], dim=2)
 
         return all_entity_logits, all_rel_logits
 
@@ -318,7 +320,7 @@ class SpERT(BertPreTrainedModel):
 # Model access
 
 _MODELS = {
-    'spert': SpERT,
+    'table_filling': TableF,
 }
 
 

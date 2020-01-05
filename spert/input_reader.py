@@ -206,7 +206,7 @@ class JsonInputReader(BaseInputReader):
 
         # parse tokens
         doc_tokens, doc_encoding = self._parse_tokens(jtokens, dataset)
-        print([t.phrase for t in doc_tokens])
+        # print([t.phrase for t in doc_tokens])
         # parse entity mentions
         entities = self._parse_entities(jtags, doc_tokens, dataset)
 
@@ -252,7 +252,7 @@ class JsonInputReader(BaseInputReader):
                     entity_type = self._entity_types[jtag[2:]]
                     end = idx + 1
                     tokens = doc_tokens[start:end]
-                    print(start, end, [t.phrase for t in doc_tokens])
+                    # print(start, end, [t.phrase for t in doc_tokens])
                     phrase = " ".join([t.phrase for t in tokens])
                     entity = dataset.create_entity(entity_type, entity_labels, tokens, phrase)
                     entities.append(entity)

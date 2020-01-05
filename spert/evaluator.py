@@ -53,22 +53,23 @@ class Evaluator:
         for i in range(batch_size):
             # get model predictions for sample
             entity_clf = batch_entity_clf[i]
-            rel_clf = batch_rel_clf[i]
-
+            # rel_clf = batch_rel_clf[i]
+            # print("entity_clf:", entity_clf)
             entity_scores, entity_preds = torch.max(entity_clf, dim=2)
-
+            # print("entity_preds:", entity_preds)
+            # print("entity_scores:", entity_scores)
             entity_preds = torch.ceil(entity_preds.float() / 4)
             pred_entities = self._convert_pred_entities_(entity_preds.squeeze(0), entity_scores.squeeze(0))
             self._pred_entities.append(pred_entities)
 
-            rel_scores, rel_preds = torch.max(rel_clf, dim=2)
+            # rel_scores, rel_preds = torch.max(rel_clf, dim=2)
 
             # print("rel_preds:", rel_preds)
-            rel_preds_split = rel_preds.squeeze(0).split([i for i in range(entity_preds.shape[-1]-1, 0, -1)],dim=0)
+            # rel_preds_split = rel_preds.squeeze(0).split([i for i in range(entity_preds.shape[-1]-1, 0, -1)],dim=0)
 
-            pred_relations = self._convert_pred_relations(rel_preds_split, rel_scores.squeeze(0), 
-                                                            pred_entities)
-            self._pred_relations.append(pred_relations)    
+            # pred_relations = self._convert_pred_relations(rel_preds_split, rel_scores.squeeze(0), 
+                                                            # pred_entities)
+            # self._pred_relations.append(pred_relations)    
 
 
     def compute_scores(self):
@@ -79,25 +80,27 @@ class Evaluator:
         print("")
         merged_gt = self._merge(self._gt_entities)
         merged_pred = self._merge(self._pred_entities)
+        # print("gt:", merged_gt)
+        # print("pred:", self._pred_entities)
         gt, pred = self._convert_by_setting(merged_gt, merged_pred, include_entity_types=True)
         ner_eval = self._score(gt, pred, print_results=True)
 
-        print("")
-        print("--- Relations ---")
-        print("")
-        print("Without NER")
-        # print("gt relations:", self._gt_relations)
-        gt, pred = self._convert_by_setting(self._gt_relations, self._pred_relations, include_entity_types=False)
-        # print("gt:", [r[0][2].verbose_name for r in gt])
-        # print("pred:", [r[0][2].verbose_name for r in pred])
-        rel_eval = self._score(gt, pred, print_results=True)
+        # print("")
+        # print("--- Relations ---")
+        # print("")
+        # print("Without NER")
+        # # print("gt relations:", self._gt_relations)
+        # gt, pred = self._convert_by_setting(self._gt_relations, self._pred_relations, include_entity_types=False)
+        # # print("gt:", [r[0][2].verbose_name for r in gt])
+        # # print("pred:", [r[0][2].verbose_name for r in pred])
+        # rel_eval = self._score(gt, pred, print_results=True)
 
-        print("")
-        print("With NER")
-        gt, pred = self._convert_by_setting(self._gt_relations, self._pred_relations, include_entity_types=True)
-        rel_ner_eval = self._score(gt, pred, print_results=True)
+        # print("")
+        # print("With NER")
+        # gt, pred = self._convert_by_setting(self._gt_relations, self._pred_relations, include_entity_types=True)
+        # rel_ner_eval = self._score(gt, pred, print_results=True)
 
-        return ner_eval, rel_eval, rel_ner_eval
+        return ner_eval
 
     def store_examples(self):
         if jinja2 is None:

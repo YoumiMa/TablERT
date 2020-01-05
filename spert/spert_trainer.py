@@ -151,7 +151,7 @@ class SpERTTrainer(BaseTrainer):
         model = model_class.from_pretrained(self.args.model_path,
                                             cache_dir=self.args.cache_path,
                                             # additional model parameters
-                                            cls_token=self._tokenizer.convert_tokens_to_ids('[CLS]'),
+                                            tokenizer=self._tokenizer,
                                             # no node for 'none' class
                                             relation_labels=input_reader.relation_label_count,
                                             entity_labels=input_reader.entity_label_count,
@@ -239,6 +239,7 @@ class SpERTTrainer(BaseTrainer):
                 batch = batch.to(self._device)
 
                 # run model (forward pass)
+                # print(batch.ctx_masks)
                 entity_clf, rel_clf = model(batch.encodings, batch.ctx_masks, batch.token_masks, 
                     input_reader._start_entity_label, evaluate=True)
 
@@ -246,9 +247,9 @@ class SpERTTrainer(BaseTrainer):
                 evaluator.eval_batch(entity_clf, rel_clf, batch)
 
         global_iteration = epoch * updates_epoch + iteration
-        ner_eval, rel_eval, rel_ner_eval = evaluator.compute_scores()
-        self._log_eval(*ner_eval, *rel_eval, *rel_ner_eval,
-                       epoch, iteration, global_iteration, dataset.label)
+        ner_eval = evaluator.compute_scores()
+        # self._log_eval(*ner_eval, *rel_eval, *rel_ner_eval,
+                       # epoch, iteration, global_iteration, dataset.label)
 
         if self.args.store_examples:
             evaluator.store_examples()
