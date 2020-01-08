@@ -24,7 +24,6 @@ import math
 
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 
-
 class SpERTTrainer(BaseTrainer):
     """ Joint entity and relation extraction training and evaluation """
 
@@ -175,8 +174,13 @@ class SpERTTrainer(BaseTrainer):
                      start_labels: List[int]):
         self._logger.info("Train epoch: %s" % epoch)
 
-        # randomly shuffle data
-        order = torch.randperm(dataset.document_count)
+        # sort data according to context size
+        # length_lst = [len(doc.encoding) for doc in dataset.documents]
+        # order = sorted(range(len(length_lst)), key=lambda k: length_lst[k])
+
+        # order = torch.randperm(dataset.document_count)
+        order = None
+
         sampler = self._sampler.create_train_sampler(dataset, self.args.train_batch_size,
                                                      context_size, order=order, truncate=True)
 
@@ -192,7 +196,7 @@ class SpERTTrainer(BaseTrainer):
             model.train()
             batch = batch.to(self._device)
             # print("iteration:", global_iteration)
-            if global_iteration < self.args.iter_before_rel:
+            if epoch < self.args.iter_before_rel:
                 # do entity detection only.
                 rel_labels = None
                 allow_rel = False
@@ -200,9 +204,8 @@ class SpERTTrainer(BaseTrainer):
                 rel_labels = batch.rel_labels
                 allow_rel = True
 
-            entity_logits, rel_logits = model(batch.encodings, batch.ctx_masks, batch.token_masks, start_labels, allow_rel)
-
-            loss = compute_loss.compute(entity_logits, batch.entity_labels, rel_logits, rel_labels)                
+            entity_logits, rel_logits = model(batch.encodings, batch.ctx_masks, batch.token_masks, start_labels, allow_rel, batch.entity_labels)
+            loss = compute_loss.compute(entity_logits, batch.entity_labels, rel_logits, rel_labels, batch.ctx_masks)                
             # logging
             iteration += 1
             global_iteration = epoch * updates_epoch + iteration

@@ -64,11 +64,11 @@ class Evaluator:
 
             # rel_scores, rel_preds = torch.max(rel_clf, dim=2)
 
-            # print("rel_preds:", rel_preds)
+            # # print("rel_preds:", rel_preds)
             # rel_preds_split = rel_preds.squeeze(0).split([i for i in range(entity_preds.shape[-1]-1, 0, -1)],dim=0)
 
             # pred_relations = self._convert_pred_relations(rel_preds_split, rel_scores.squeeze(0), 
-                                                            # pred_entities)
+            #                                                 pred_entities)
             # self._pred_relations.append(pred_relations)    
 
 

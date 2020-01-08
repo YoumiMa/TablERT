@@ -18,19 +18,73 @@ from typing import List
 # import torchcrf
 import json
 
-def get_token(h: torch.tensor, token_mask: torch.tensor):
-    """ Get specific token embedding masked by token_mask. """
 
+def get_token(h: torch.tensor, x: torch.tensor, token: int):
+    """ Get specific token embedding (e.g. [CLS]) """
     emb_size = h.shape[-1]
 
-    # for each batch, get the contextualized embedding of token (maxpooling)
-    subtokens = h[token_mask]
-    if subtokens.nelement() == 0:
-        subtokens = torch.zeros(emb_size, dtype=torch.float).cuda()
-    else:
-        subtokens = subtokens.max(dim=0)[0]
+    token_h = h.view(-1, emb_size)
+    flat = x.contiguous().view(-1)
+
+    # get contextualized embedding of given token
+    token_h = token_h[flat == token, :]
+
+    return token_h
+
+
+def align_bert_embeddings(h: torch.tensor, token_mask: torch.tensor, cls_repr: torch.tensor):
+    """ Align bert token embeddings to word embeddings, masked by token_mask. """
+
+    def pick_first(h: torch.tensor, token_mask: torch.tensor):
+        """ pick up the first subword repr as word embedding."""
         
-    return subtokens
+        sub_reprs = h[token_mask]
+        return sub_reprs[0]
+
+    def mean_pooling(h: torch.tensor, token_mask: torch.tensor):
+        """ mean-pooling through bert embeddings. """
+        
+        sub_reprs = h[token_mask]
+        avg_repr = sub_reprs.sum(dim=0)/sub_reprs.shape[0]
+
+        return avg_repr
+
+    def mean_pooling_with_cls(h: torch.tensor, token_mask: torch.tensor, cls_repr: torch.tensor):
+        """ mean-pooling with cls. """
+        
+        sub_reprs = h[token_mask]
+        avg_repr = (sub_reprs.sum(dim=0) + cls_repr)/(sub_reprs.shape[0]+1)
+
+        return avg_repr
+
+    def max_pooling(h: torch.tensor, token_mask: torch.tensor):
+        """ max-pooling through bert embeddings. """
+        sub_reprs = h[token_mask]
+
+        return sub_reprs.max(dim=0)[0]
+    
+
+    context_size = h.shape[0]
+    word_embeddings_lst = []
+
+    for i in range(context_size):
+        if torch.any(token_mask[i]):
+            word_embeddings_lst.append(mean_pooling_with_cls(h, token_mask[i], cls_repr))
+
+    word_embeddings = torch.stack(word_embeddings_lst)
+    return word_embeddings
+
+# def align_label(label: torch.tensor, token_mask: torch.tensor):
+#     """ Align tokenized label to word-piece label, masked by token_mask. """
+
+#     context_size = label.shape[0]
+#     word_labels_lst = []
+#     for i in range(context_size):
+#         if torch.any(token_mask[i]):
+#             curr_label = label[token_mask[i]]
+#             print(curr_label)
+
+#     return
 
 
 class TableF(BertPreTrainedModel):
@@ -51,6 +105,7 @@ class TableF(BertPreTrainedModel):
         self.entity_classifier = nn.Linear(config.hidden_size * 2 + entity_label_embedding , entity_labels)
         # sel.crf = torchcrf.CRF(entity_labels)
         self.dropout = nn.Dropout(prop_drop)
+        self.m = nn.Softmax()
 
         self._relation_labels = relation_labels
         self._entity_labels = entity_labels
@@ -84,6 +139,7 @@ class TableF(BertPreTrainedModel):
         # maxpool between previous entity and current position.
         masked_repr = h[prev_mask]
         masked_repr_pool = masked_repr.max(dim=0)[0].unsqueeze(0)
+#         cls_repr = h[0].unsqueeze(0)
 
         # previous label embedding.
         prev_embedding = prev_embedding.unsqueeze(0)
@@ -105,6 +161,7 @@ class TableF(BertPreTrainedModel):
 
         # print(i,j)
         # print(entity_masks)
+        context_size = entity_masks.shape[-1]
         i_repr = h[i].unsqueeze(0)
         j_repr = h[j].unsqueeze(0)
 
@@ -118,14 +175,14 @@ class TableF(BertPreTrainedModel):
         before_mask[i:] = 0 
         before_mask[0] = 1
         # print("before mask:", before_mask)
-        before_repr = h[before_mask]
+        before_repr = h[:context_size][before_mask]
         before_pool = before_repr.max(dim=0)[0].unsqueeze(0)
 
         between_mask = ~entity_masks[i].contiguous() & ~entity_masks[j].contiguous()
         between_mask[:i] = 0
         between_mask[j:] = 0
         # print("between mask:", between_mask)
-        between_repr = h[between_mask]
+        between_repr = h[:context_size][between_mask]
         if between_repr.nelement() != 0:
             between_pool = between_repr.max(dim=0)[0].unsqueeze(0)
         else:
@@ -136,7 +193,7 @@ class TableF(BertPreTrainedModel):
         after_mask[:j] = 0
         after_mask[-1] = 1
         # print("after mask:", after_mask)
-        after_repr = h[after_mask]
+        after_repr = h[:context_size][after_mask]
         # print(after_repr.shape)
         after_pool = after_repr.max(dim=0)[0].unsqueeze(0)
 
@@ -156,8 +213,7 @@ class TableF(BertPreTrainedModel):
 
     def _forward_train(self, encodings: torch.tensor, context_mask: torch.tensor, 
                         token_mask: torch.tensor, start_labels: List[int],
-                        allow_rel: bool):
-        
+                        allow_rel: bool, gt_entity: torch.tensor):  
         # get contextualized token embeddings from last transformer layer
         context_mask = context_mask.float()
         h = self.bert(input_ids=encodings, attention_mask=context_mask)[0]
@@ -165,13 +221,99 @@ class TableF(BertPreTrainedModel):
         batch_size = encodings.shape[0]
         # print("encodings:", encodings)
         # print(context_mask * encodings, (context_mask * encodings).shape)
-        context_size = encodings.shape[1]
+        # context_size = encodings.shape[1]
+
+
+        all_entity_logits = []
+        all_rel_logits = []
+
+        for batch in range(batch_size): # every batch
+            
+            # align bert token embeddings to word embeddings
+            cls_id = self._tokenizer.convert_tokens_to_ids("[CLS]")
+            cls_repr = get_token(h[batch], encodings[batch], cls_id)
+            word_h = align_bert_embeddings(h[batch], token_mask[batch], cls_repr)
+
+            exit(-1)
+
+            context_size = context_mask[batch].sum().long().item()
+            entity_masks = torch.zeros((context_size, context_size), dtype=torch.bool).cuda() 
+
+            entity_logits_batch = []
+            rel_logits_batch = [[] for i in range(1,context_size-1)]
+            prev_i = 0
+            prev_label = 0
+
+
+            # Entity classification.
+            for i in range(1, context_size-1): # no [CLS], no [SEP]
+                
+                # mask from previous entity token until current position.
+                prev_mask = self._get_prev_mask(prev_i, i, context_mask[batch], start_labels)
+                # prvious label embedding.
+                prev_embedding = self.entity_label_embedding(torch.tensor(prev_label).cuda())
+                
+                curr_entity_logits = self._forward_token(word_h[batch], token_mask[batch],
+                                                             i, prev_mask, prev_embedding, False)
+                # print(curr_entity_logits.shape)
+
+                # prediction of current entity. (GREEDY)
+                curr_label = torch.argmax(curr_entity_logits)
+                # curr_label = gt_entity[batch][i]
+
+                entity_masks[i, i] = 1                
+                # update info of previous entity.
+                if curr_label == 0:
+                    prev_i = i
+                    prev_label = curr_label
+                elif curr_label in start_labels and curr_label != prev_label:
+                    prev_i = i
+                    prev_label = curr_label
+                else:
+                    entity_masks[prev_i:i+1, prev_i:i+1] = 1     
+
+                entity_logits_batch.append(curr_entity_logits)
+
+            all_entity_logits.append(torch.stack(entity_logits_batch, dim=1))
+            # print("entity mask:", entity_masks)
+            # Relation classification.
+            if allow_rel:
+                for i in range(1, context_size-1):
+
+                    pred_i = torch.argmax(entity_logits_batch[i-1])
+                    i_embedding = self.entity_label_embedding(pred_i)
+                    # print("i:", i)
+                    for j in range(i+1, context_size-1):
+
+                        pred_j = torch.argmax(entity_logits_batch[j-1])
+                        j_embedding = self.entity_label_embedding(pred_j)
+
+                        curr_rel_logits = self._forward_relation(h[batch], token_mask[batch],
+                                            i, j, i_embedding, j_embedding, entity_masks, False)
+                        # print("i,j,logits", i, j, curr_rel_logits)
+                        # rel_logits_batch[] = curr_rel_logits
+                # print("length:", len(rel_logits_batch))
+                all_rel_logits.append(torch.stack(rel_logits_batch, dim=1))
+                        
+
+
+        return all_entity_logits, all_rel_logits
+
+    def _forward_eval(self, encodings: torch.tensor, context_mask: torch.tensor, 
+                        token_mask: torch.tensor, start_labels: List[int]):
+        # get contextualized token embeddings from last transformer layer
+        context_mask = context_mask.float()
+        h = self.bert(input_ids=encodings, attention_mask=context_mask)[0]
+
+        batch_size = encodings.shape[0]
         all_entity_logits = []
         all_rel_logits = []
         entity_logits_batch = []
         rel_logits_batch = []
+
         for batch in range(batch_size): # every batch
             
+            context_size = context_mask[batch].sum().long().item()
             prev_i = 0
             prev_label = 0
             entity_masks = torch.zeros((context_size, context_size), dtype=torch.bool).cuda()
@@ -204,82 +346,10 @@ class TableF(BertPreTrainedModel):
                 entity_logits_batch.append(curr_entity_logits)
 
             all_entity_logits.append(torch.stack(entity_logits_batch, dim=1))
-            # print("entity mask:", entity_masks)
-            # Relation classification.
-            if allow_rel:
-                for i in range(1, context_size-1):
-
-                    pred_i = torch.argmax(entity_logits_batch[i-1])
-                    i_embedding = self.entity_label_embedding(pred_i)
-                    # print("i:", i)
-                    for j in range(i+1, context_size-1):
-
-                        pred_j = torch.argmax(entity_logits_batch[j-1])
-                        j_embedding = self.entity_label_embedding(pred_j)
-
-                        curr_rel_logits = self._forward_relation(h[batch], token_mask[batch],
-                                            i, j, i_embedding, j_embedding, entity_masks, False)
-                        # print("i,j,logits", i, j, curr_rel_logits)
-                        rel_logits_batch.append(curr_rel_logits)
-                # print("length:", len(rel_logits_batch))
-                all_rel_logits.append(torch.stack(rel_logits_batch, dim=1))
-                    
-            entity_logits_batch = []
-            rel_logits_batch = []
-
-
-        return all_entity_logits, all_rel_logits
-
-    def _forward_eval(self, encodings: torch.tensor, context_mask: torch.tensor, 
-                        token_mask: torch.tensor, start_labels: List[int]):
-        # get contextualized token embeddings from last transformer layer
-        context_mask = context_mask.float()
-        h = self.bert(input_ids=encodings, attention_mask=context_mask)[0]
-
-        batch_size = encodings.shape[0]
-        context_size = encodings.shape[1]
-        all_entity_logits = []
-        all_rel_logits = []
-        entity_logits_batch = []
-        rel_logits_batch = []
-
-        for batch in range(batch_size): # every batch
-            
-            prev_i = 0
-            prev_label = 0
-            entity_masks = torch.zeros((context_size, context_size), dtype=torch.bool).cuda()
-
-            # Entity classification.
-            for i in range(1, context_size-1): # no [CLS], no [SEP]
-                
-                # mask from previous entity token until current position.
-                prev_mask = self._get_prev_mask(prev_i, i, context_mask[batch], start_labels)
-                # prvious label embedding.
-                prev_embedding = self.entity_label_embedding(torch.tensor(prev_label).cuda())
-                
-                curr_entity_logits = self._forward_token(h[batch], token_mask[batch],
-                                                             i, prev_mask, prev_embedding, True)
-
-                # prediction of current entity. (GREEDY)
-                curr_label = torch.argmax(curr_entity_logits)
-
-                entity_masks[i, i] = 1                
-                # update info of previous entity.
-                if curr_label == 0:
-                    prev_i = i
-                    prev_label = curr_label
-                elif curr_label in start_labels and curr_label != prev_label:
-                    prev_i = i
-                    prev_label = curr_label
-                else:
-                    entity_masks[prev_i:i+1, prev_i:i+1] = 1     
-
-                entity_logits_batch.append(curr_entity_logits)
-
-            all_entity_logits.append(torch.stack(entity_logits_batch, dim=1))
             # print(all_entity_logits)
             # print("entity mask:", entity_masks)
             # Relation classification.
+
             # for i in range(1, context_size-1):
 
             #     pred_i = torch.argmax(entity_logits_batch[i-1])

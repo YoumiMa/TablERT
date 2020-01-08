@@ -110,7 +110,6 @@ class BaseInputReader(ABC):
         return relation
 
 
-
     def _calc_context_size(self, datasets: Iterable[Dataset]):
         sizes = []
 
@@ -233,7 +232,6 @@ class JsonInputReader(BaseInputReader):
 
             doc_tokens.append(token)
             doc_encoding += token_encoding
-
         doc_encoding += [self._tokenizer.convert_tokens_to_ids('[SEP]')]
 
         return doc_tokens, doc_encoding
