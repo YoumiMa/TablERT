@@ -303,10 +303,17 @@ def _create_train_sample(doc, context_size, shuffle = False):
 
     # token masks
     tokens = doc.tokens
-    token_masks = torch.zeros((context_size, context_size), dtype=torch.bool)
+    token_masks = torch.zeros((len(_encoding), len(_encoding)), dtype=torch.bool)
+
+    # [CLS]
+    token_masks[0,0] = 1
+
     for i,t in enumerate(tokens):
         token_masks[i+1, t.span_start:t.span_end] = 1
 
+    # [SEP]
+    token_masks[i+2,t.span_end] = 1  
+    
     return TrainTensorSample(encoding=encoding, ctx_mask=ctx_mask, 
                             entity_types=entity_types, entity_labels=entity_labels,
                             rel_types=rel_types, rel_labels=rel_labels, token_masks=token_masks)
@@ -358,10 +365,19 @@ def _create_eval_sample(doc, context_size):
 
     # token masks
     tokens = doc.tokens
-    token_masks = torch.zeros((context_size, context_size), dtype=torch.bool)
+    token_masks = torch.zeros((len(_encoding), len(_encoding)), dtype=torch.bool)
+
+
+    # [CLS]
+    token_masks[0,0] = 1
+
+
+    
     for i,t in enumerate(tokens):
         token_masks[i+1, t.span_start:t.span_end] = 1
-        
+
+    # [SEP]
+    token_masks[i+2,t.span_end] = 1           
 
     return EvalTensorSample(encoding=encoding, ctx_mask=ctx_mask, 
                             entity_types=entity_types, entity_labels=entity_labels,

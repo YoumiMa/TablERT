@@ -239,6 +239,9 @@ class Entity:
         self._phrase = phrase
 
     def as_tuple(self):
+        return self._tokens[0].index, self._tokens[-1].index+1, self._entity_type
+
+    def as_tuple_span(self):
         return self.span_start, self.span_end, self._entity_type
 
     @property

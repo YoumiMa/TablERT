@@ -59,9 +59,10 @@ class Evaluator:
             # print("entity_preds:", entity_preds)
             # print("entity_scores:", entity_scores)
             entity_preds = torch.ceil(entity_preds.float() / 4)
-            pred_entities = self._convert_pred_entities_(entity_preds.squeeze(0), entity_scores.squeeze(0))
+            pred_entities = self._convert_pred_entities_(entity_preds.squeeze(0), entity_scores.squeeze(0), batch.token_masks[i])
+            # print("pred_entities:", pred_entities)           
             self._pred_entities.append(pred_entities)
-
+            # print("preds:", pred_entities)
             # rel_scores, rel_preds = torch.max(rel_clf, dim=2)
 
             # # print("rel_preds:", rel_preds)
@@ -78,11 +79,11 @@ class Evaluator:
         print("")
         print("--- Entities (NER) ---")
         print("")
-        merged_gt = self._merge(self._gt_entities)
-        merged_pred = self._merge(self._pred_entities)
-        # print("gt:", merged_gt)
+        # merged_gt = self._merge(self._gt_entities)
+        # merged_pred = self._merge(self._pred_entities)
+        # print("gt:", self._gt_entities)
         # print("pred:", self._pred_entities)
-        gt, pred = self._convert_by_setting(merged_gt, merged_pred, include_entity_types=True)
+        gt, pred = self._convert_by_setting(self._gt_entities, self._pred_entities, include_entity_types=True)
         ner_eval = self._score(gt, pred, print_results=True)
 
         # print("")
@@ -175,6 +176,7 @@ class Evaluator:
             # print(sample_gt_relations)
             self._gt_relations.append(sample_gt_relations)
             self._gt_entities.append(sample_gt_entities)
+            # print("gold:", self._gt_entities)
 
     def _convert_pred_entities(self, pred_types: torch.tensor, pred_scores: torch.tensor):
         converted_preds = []
@@ -204,27 +206,29 @@ class Evaluator:
 
         return entities
 
-    def _convert_pred_entities_(self, pred_types: torch.tensor, pred_scores: torch.tensor):
+    def _convert_pred_entities_(self, pred_types: torch.tensor, pred_scores: torch.tensor, token_mask: torch.tensor):
         converted_preds = []
         # print(pred_types)
-        
+
         curr_type = 0
         start = 0
-
-        for i in range(pred_types.shape[0]):
-            type_idx = pred_types[i].item()
-            # print("entity type:", curr_type)
-            score = pred_scores[i].item()
-            if type_idx != curr_type:
-                if curr_type != 0:
-                    converted_pred = (start+1, i+1, entity_type, score)
-                    # print("appended:", start+1, i+1, entity_type.index)
-                    converted_preds.append(converted_pred)
-                start = i
-                curr_type = type_idx
-                entity_type = self._input_reader.get_entity_type(curr_type)
+        
+        for i in range(token_mask.shape[0]):
+            if torch.any(token_mask[i][1:-1]): # a token here
+                type_ids = pred_types[token_mask[i][1:-1]]
+                curr_score = pred_scores[token_mask[i][1:-1]][0].item()
+                # print(type_ids)
+                type_id = type_ids[0].item()
+                if type_id != curr_type:
+                    if curr_type != 0:
+                        converted_pred = (start, i-1, entity_type, curr_score)
+                        # print("appended:", start+1, i+1, entity_type.index)
+                        converted_preds.append(converted_pred)
+                    start = i-1
+                    curr_type = type_id
+                    entity_type = self._input_reader.get_entity_type(curr_type)
         if curr_type != 0:
-            converted_pred = (start+1, i+2 , entity_type, score)
+            converted_pred = (start, i , entity_type, curr_score)
             # print("appended:", start+1, i+2, entity_type.index)
             converted_preds.append(converted_pred)            
 
@@ -306,7 +310,6 @@ class Evaluator:
         gt_flat = []
         pred_flat = []
         types = set()
-
 
         for (sample_gt, sample_pred) in zip(gt, pred):
             union = set()

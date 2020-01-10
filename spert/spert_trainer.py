@@ -24,6 +24,27 @@ import math
 
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 
+
+def align_label(label: torch.tensor, token_mask: torch.tensor):
+    """ Align tokenized label to word-piece label, masked by token_mask. """
+
+    batch_size = label.shape[0]
+    context_size = label.shape[-1]
+
+    batch_labels = []
+
+    for b in range(batch_size):
+        word_labels_lst = []
+        for i in range(context_size): # no [CLS], no [SEP]
+            if torch.any(token_mask[b, i]):
+                curr_label = label[b, token_mask[b, i]]
+                word_labels_lst.append(torch.unique(curr_label))
+        batch_labels.append(torch.cat(word_labels_lst[1:-1]))
+
+    return batch_labels
+
+
+
 class SpERTTrainer(BaseTrainer):
     """ Joint entity and relation extraction training and evaluation """
 
@@ -114,7 +135,8 @@ class SpERTTrainer(BaseTrainer):
 
             # eval validation sets
             if not args.final_eval or (epoch == args.epochs - 1):
-                self._eval(model, validation_dataset, input_reader, epoch + 1, updates_epoch)
+                acc = self._eval(model, validation_dataset, input_reader, epoch + 1, updates_epoch)
+                # if acc[]
 
         # save final model
         extra = dict(epoch=args.epochs, updates_epoch=updates_epoch, epoch_iteration=0)
@@ -205,7 +227,8 @@ class SpERTTrainer(BaseTrainer):
                 allow_rel = True
 
             entity_logits, rel_logits = model(batch.encodings, batch.ctx_masks, batch.token_masks, start_labels, allow_rel, batch.entity_labels)
-            loss = compute_loss.compute(entity_logits, batch.entity_labels, rel_logits, rel_labels, batch.ctx_masks)                
+            # gold_labels = align_label(batch.entity_labels, batch.token_masks)
+            loss = compute_loss.compute(entity_logits, batch.entity_labels, rel_logits, rel_labels)                
             # logging
             iteration += 1
             global_iteration = epoch * updates_epoch + iteration
@@ -246,6 +269,7 @@ class SpERTTrainer(BaseTrainer):
                 entity_clf, rel_clf = model(batch.encodings, batch.ctx_masks, batch.token_masks, 
                     input_reader._start_entity_label, evaluate=True)
 
+                
                 # evaluate batch
                 evaluator.eval_batch(entity_clf, rel_clf, batch)
 
@@ -256,6 +280,8 @@ class SpERTTrainer(BaseTrainer):
 
         if self.args.store_examples:
             evaluator.store_examples()
+
+        return ner_eval
 
     def _get_optimizer_params(self, model):
         param_optimizer = list(model.named_parameters())
