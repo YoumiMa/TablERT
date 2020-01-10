@@ -109,8 +109,16 @@ class TableF(BertPreTrainedModel):
             for param in self.bert.parameters():
                 param.requires_grad = False
 
-    def _get_prev_mask(self, prev_i, curr_i, ctx_mask):
+    def _get_prev_mask(self, prev_i, curr_i, ctx_size):
+        # for word
+        prev_mask = torch.zeros((ctx_size,), dtype=torch.bool)
+        prev_mask[prev_i:curr_i] = 1
 
+        return prev_mask
+
+
+    def _get_prev_mask_(self, prev_i, curr_i, ctx_mask):
+        # for token
         prev_mask = torch.zeros_like(ctx_mask, dtype=torch.bool)
         prev_mask[prev_i:curr_i] = 1
 
@@ -225,8 +233,14 @@ class TableF(BertPreTrainedModel):
             
             # align bert token embeddings to word embeddings            
             # word_h = align_bert_embeddings(h[batch], token_mask[batch], cls_repr).view(-1, h.shape[-1])
+            
+
             word_h = h[batch]
+
+
             context_size = context_mask[batch].long().sum().item()
+            # context_size = word_h.shape[1]
+
             entity_masks = torch.zeros((context_size, context_size), dtype=torch.bool).cuda() 
 
             entity_logits_batch = []
@@ -237,7 +251,12 @@ class TableF(BertPreTrainedModel):
             # Entity classification.
             for i in range(1, context_size-1): # no [CLS], no [SEP] 
                 # mask from previous entity token until current position.
-                prev_mask = self._get_prev_mask(prev_i, i, context_mask[batch])
+                prev_mask = self._get_prev_mask_(prev_i, i, context_mask[batch])
+
+                # word
+                # prev_mask = self._get_prev_mask(prev_i, i, context_mask[batch])
+
+
                 # prvious label embedding.
                 prev_embedding = self.entity_label_embedding(torch.tensor(prev_label).cuda())
                 
@@ -323,7 +342,7 @@ class TableF(BertPreTrainedModel):
             # Entity classification.
             for i in range(1, context_size-1): # no [CLS], no [SEP] 
                 # mask from previous entity token until current position.
-                prev_mask = self._get_prev_mask(prev_i, i, context_mask[batch])
+                prev_mask = self._get_prev_mask_(prev_i, i, context_mask[batch])
                 # prvious label embedding.
                 prev_embedding = self.entity_label_embedding(torch.tensor(prev_label).cuda())
                 

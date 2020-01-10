@@ -59,8 +59,14 @@ class Evaluator:
             # print("entity_preds:", entity_preds)
             # print("entity_scores:", entity_scores)
             entity_preds = torch.ceil(entity_preds.float() / 4)
+            
+            ### training (word level):
+            # pred_entities = self._convert_pred_entities(entity_preds.squeeze(0), entity_scores.squeeze(0))
+
+            ### fine tuning (token level):
             pred_entities = self._convert_pred_entities_(entity_preds.squeeze(0), entity_scores.squeeze(0), batch.token_masks[i])
             # print("pred_entities:", pred_entities)           
+            
             self._pred_entities.append(pred_entities)
             # print("preds:", pred_entities)
             # rel_scores, rel_preds = torch.max(rel_clf, dim=2)
@@ -179,18 +185,31 @@ class Evaluator:
             # print("gold:", self._gt_entities)
 
     def _convert_pred_entities(self, pred_types: torch.tensor, pred_scores: torch.tensor):
+        #### for word-level.
         converted_preds = []
+        # print(pred_types)
+        
+        curr_type = 0
+        start = 0
 
         for i in range(pred_types.shape[0]):
-            label_idx = pred_types[i].item()
-            entity_type = self._input_reader.get_entity_type(label_idx)
-
-            start, end = pred_spans[i].tolist()
+            type_idx = pred_types[i].item()
+            # print("entity type:", curr_type)
             score = pred_scores[i].item()
+            if type_idx != curr_type:
+                if curr_type != 0:
+                    converted_pred = (start, i, entity_type, score)
+                    # print("appended:", start+1, i+1, entity_type.index)
+                    converted_preds.append(converted_pred)
+                start = i
+                curr_type = type_idx
+                entity_type = self._input_reader.get_entity_type(curr_type)
+        if curr_type != 0:
+            converted_pred = (start, i+1 , entity_type, score)
+            # print("appended:", start+1, i+2, entity_type.index)
+            converted_preds.append(converted_pred)            
 
-            converted_pred = (start, end, entity_type, score)
-            converted_preds.append(converted_pred)
-
+        # print('???????',[preds[2].index for preds in converted_preds])
         return converted_preds
 
 

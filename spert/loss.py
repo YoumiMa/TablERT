@@ -30,34 +30,38 @@ class SpERTLoss(Loss):
 
         train_loss = 0.
         for b, batch_logits in enumerate(entity_logits):
+
             batch_entities = entity_labels[b][1:1+batch_logits.shape[1]]
-            entity_loss = self._entity_criterion(batch_logits.squeeze(0), batch_entities)
-            train_loss += entity_loss.sum()/batch_logits.shape[1]
+            # batch_entities = entity_labels[b]
 
-            # context_size = batch_logits.shape[1]
-            # # print(context_size)
-            # local_scores = []
-            # greedy_path = []
-            # ptr = []
-            # for i in range(context_size): # no [CLS], no [SEP]
-            #     logits = batch_logits.squeeze(0)[i]
-            #     scores = logits
-            #     pred = torch.argmax(scores)
-            #     gold = batch_entities[i]
-            #     # print("pred:", pred)
-            #     # print("gold:", gold)
-            #     # score = self.local_score(logits)
-            #     local_scores.append(scores[gold])
-            #     greedy_path.append(scores[pred])
+            # entity_loss = self._entity_criterion(batch_logits.squeeze(0), batch_entities)
+            # train_loss += entity_loss.sum()/batch_logits.shape[1]
 
-            #     if pred != gold:
-            #         ptr.append(i)
+            context_size = batch_logits.shape[1]
+            # print(context_size)
+            local_scores = []
+            greedy_path = []
+            ptr = []
+            for i in range(context_size): # no [CLS], no [SEP]
+                logits = batch_logits.squeeze(0)[i]
+                scores = logits
+                pred = torch.argmax(scores)
+                gold = batch_entities[i]
+                # print("pred:", pred)
+                # print("gold:", gold)
+                # score = self.local_score(logits)
+                local_scores.append(scores[gold])
+                greedy_path.append(scores[pred])
 
-            # if ptr == []:
-            #     ptr.append(context_size)
+                if gold not in pred:
+                    ptr.append(i)
+
+            if ptr == []:
+                ptr.append(context_size)
             # for p in ptr:
-            #     # print("p:", p , - sum(local_scores[:p+1]) +  sum(greedy_path[:p+1]))
-            #     train_loss += - sum(local_scores[:p+1]) +  sum(greedy_path[:p+1])
+                # print("p:", p , - sum(local_scores[:p+1]) +  sum(greedy_path[:p+1]))
+            p = ptr[-1]    
+            train_loss += - sum(local_scores[:p+1]) +  sum(greedy_path[:p+1])
             # train_loss = self._entity_criterion(batch_logits.squeeze(0), entity_labels[b][1:-1])
             # train_loss =  (train_loss * entity_mask[b][1:-1]).sum() / entity_mask[b][1:-1].sum()
             # train_loss /= context_size
