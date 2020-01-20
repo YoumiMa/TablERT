@@ -10,6 +10,8 @@ from spert.entities import Document, Dataset, EntityLabel, EntityType
 from spert.input_reader import JsonInputReader
 from spert.opt import jinja2
 from spert.sampling import EvalTensorBatch
+from spert.beam import BeamSearch
+
 
 from functools import reduce
 
@@ -54,24 +56,35 @@ class Evaluator:
             # get model predictions for sample
             entity_clf = batch_entity_clf[i]
             # rel_clf = batch_rel_clf[i]
-            # print("entity_clf:", entity_clf)
-            entity_scores, entity_preds = torch.max(entity_clf, dim=2)
-            # print("entity_preds:", entity_preds)
-            # print("entity_scores:", entity_scores)
+            beam_entity = BeamSearch(entity_clf.shape[2])
+            context_size = entity_clf.shape[1]
+            for j in range(context_size):
+                beam_entity.advance(entity_clf.squeeze(0)[j])
+
+            entity_scores, entity_preds = beam_entity.get_best_path 
+            # entity_scores, entity_preds = torch.max(entity_clf, dim=2)
+
             entity_preds = torch.ceil(entity_preds.float() / 4)
-            
+            # print("entity_preds:", entity_preds)
+            # print("entity_scores:", entity_scores)            
             ### training (word level):
-            # pred_entities = self._convert_pred_entities(entity_preds.squeeze(0), entity_scores.squeeze(0))
+            pred_entities = self._convert_pred_entities(entity_preds.squeeze(0), entity_scores.squeeze(0))
 
             ### fine tuning (token level):
-            pred_entities = self._convert_pred_entities_(entity_preds.squeeze(0), entity_scores.squeeze(0), batch.token_masks[i])
+            # pred_entities = self._convert_pred_entities_(entity_preds.squeeze(0), entity_scores.squeeze(0), batch.token_masks[i])
             # print("pred_entities:", pred_entities)           
             
             self._pred_entities.append(pred_entities)
             # print("preds:", pred_entities)
-            # rel_scores, rel_preds = torch.max(rel_clf, dim=2)
 
-            # # print("rel_preds:", rel_preds)
+            # beam_rel = BeamSearch(rel_clf.shape[2])
+            # context_size = rel_clf.shape[1]
+            # for j in range(context_size):
+            #     beam_rel.advance(rel_clf.squeeze(0)[j])
+
+            # rel_scores, rel_preds = beam_rel.get_best_path
+
+            # # # print("rel_preds:", rel_preds)
             # rel_preds_split = rel_preds.squeeze(0).split([i for i in range(entity_preds.shape[-1]-1, 0, -1)],dim=0)
 
             # pred_relations = self._convert_pred_relations(rel_preds_split, rel_scores.squeeze(0), 
@@ -92,22 +105,22 @@ class Evaluator:
         gt, pred = self._convert_by_setting(self._gt_entities, self._pred_entities, include_entity_types=True)
         ner_eval = self._score(gt, pred, print_results=True)
 
-        # print("")
-        # print("--- Relations ---")
-        # print("")
-        # print("Without NER")
-        # # print("gt relations:", self._gt_relations)
-        # gt, pred = self._convert_by_setting(self._gt_relations, self._pred_relations, include_entity_types=False)
-        # # print("gt:", [r[0][2].verbose_name for r in gt])
-        # # print("pred:", [r[0][2].verbose_name for r in pred])
-        # rel_eval = self._score(gt, pred, print_results=True)
+        print("")
+        print("--- Relations ---")
+        print("")
+        print("Without NER")
+        # print("gt relations:", self._gt_relations)
+        gt, pred = self._convert_by_setting(self._gt_relations, self._pred_relations, include_entity_types=False)
+        # print("gt:", [r[0][2].verbose_name for r in gt])
+        # print("pred:", [r[0][2].verbose_name for r in pred])
+        rel_eval = self._score(gt, pred, print_results=True)
 
-        # print("")
-        # print("With NER")
-        # gt, pred = self._convert_by_setting(self._gt_relations, self._pred_relations, include_entity_types=True)
-        # rel_ner_eval = self._score(gt, pred, print_results=True)
+        print("")
+        print("With NER")
+        gt, pred = self._convert_by_setting(self._gt_relations, self._pred_relations, include_entity_types=True)
+        rel_ner_eval = self._score(gt, pred, print_results=True)
 
-        return ner_eval
+        return ner_eval, rel_eval,rel_ner_eval
 
     def store_examples(self):
         if jinja2 is None:
@@ -178,7 +191,7 @@ class Evaluator:
 
             # convert ground truth relations and entities for precision/recall/f1 evaluation
             sample_gt_relations = [rel.as_tuple() for rel in gt_relations]
-            sample_gt_entities = [entity.as_tuple() for entity in gt_entities]
+            sample_gt_entities = [entity.as_tuple_span() for entity in gt_entities]
             # print(sample_gt_relations)
             self._gt_relations.append(sample_gt_relations)
             self._gt_entities.append(sample_gt_entities)
@@ -198,15 +211,15 @@ class Evaluator:
             score = pred_scores[i].item()
             if type_idx != curr_type:
                 if curr_type != 0:
-                    converted_pred = (start, i, entity_type, score)
-                    # print("appended:", start+1, i+1, entity_type.index)
+                    converted_pred = (start, i+1, entity_type, score)
+                    # print("appended:", start, i, entity_type.index)
                     converted_preds.append(converted_pred)
-                start = i
+                start = i+1
                 curr_type = type_idx
                 entity_type = self._input_reader.get_entity_type(curr_type)
         if curr_type != 0:
-            converted_pred = (start, i+1 , entity_type, score)
-            # print("appended:", start+1, i+2, entity_type.index)
+            converted_pred = (start, i+2 , entity_type, score)
+            # print("appended:", start, i+1, entity_type.index)
             converted_preds.append(converted_pred)            
 
         # print('???????',[preds[2].index for preds in converted_preds])
@@ -231,11 +244,11 @@ class Evaluator:
 
         curr_type = 0
         start = 0
-        
-        for i in range(token_mask.shape[0]):
-            if torch.any(token_mask[i][1:-1]): # a token here
-                type_ids = pred_types[token_mask[i][1:-1]]
-                curr_score = pred_scores[token_mask[i][1:-1]][0].item()
+        encoding_length = token_mask.shape[0]
+        for i in range(encoding_length):
+            if torch.any(token_mask[i][1:encoding_length-1]): # a token here
+                type_ids = pred_types[token_mask[i][1:encoding_length-1]]
+                curr_score = pred_scores[token_mask[i][1:encoding_length-1]][0].item()
                 # print(type_ids)
                 type_id = type_ids[0].item()
                 if type_id != curr_type:

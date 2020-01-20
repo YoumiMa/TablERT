@@ -303,7 +303,7 @@ def _create_train_sample(doc, context_size, shuffle = False):
 
     # token masks
     tokens = doc.tokens
-    token_masks = torch.zeros((len(_encoding), len(_encoding)), dtype=torch.bool)
+    token_masks = torch.zeros((len(_encoding), context_size), dtype=torch.bool)
 
     # [CLS]
     token_masks[0,0] = 1
@@ -365,7 +365,7 @@ def _create_eval_sample(doc, context_size):
 
     # token masks
     tokens = doc.tokens
-    token_masks = torch.zeros((len(_encoding), len(_encoding)), dtype=torch.bool)
+    token_masks = torch.zeros((len(_encoding), context_size), dtype=torch.bool)
 
 
     # [CLS]

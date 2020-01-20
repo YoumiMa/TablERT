@@ -1,6 +1,7 @@
 from abc import ABC
 
 import torch
+from spert.beam import BeamSearch
 
 
 class Loss(ABC):
@@ -19,7 +20,7 @@ class SpERTLoss(Loss):
 
 
     def local_score(self, entity_logits):
-        m = torch.nn.LogSoftmax()
+        m = torch.nn.Softmax(dim=-1)
         score = m(entity_logits)
         # print("local:", score)
 
@@ -40,28 +41,34 @@ class SpERTLoss(Loss):
             context_size = batch_logits.shape[1]
             # print(context_size)
             local_scores = []
-            greedy_path = []
+            beam_paths = []
             ptr = []
+            beam = BeamSearch(batch_logits.shape[2])
             for i in range(context_size): # no [CLS], no [SEP]
+                # print("logits:", batch_logits.squeeze(0)[i])
                 logits = batch_logits.squeeze(0)[i]
-                scores = logits
-                pred = torch.argmax(scores)
+                # print("softmaxed:", logits)
+                beam.advance(logits)
+                preds = beam.get_curr_state
                 gold = batch_entities[i]
-                # print("pred:", pred)
-                # print("gold:", gold)
-                # score = self.local_score(logits)
-                local_scores.append(scores[gold])
-                greedy_path.append(scores[pred])
-
-                if gold not in pred:
+                # print("preds:", preds, "gold:", gold)
+                local_scores.append(logits[0][gold])
+                # print("beam:", beam.get_curr_scores)
+                # print("sum:", torch.logsumexp(beam.get_curr_scores, dim=0))
+                beam_paths.append(torch.logsumexp(beam.get_curr_scores, dim=0))
+                # print(beam_paths)
+                # print("curr scores:", beam_paths)
+                if gold not in preds:
                     ptr.append(i)
+
 
             if ptr == []:
                 ptr.append(context_size)
             # for p in ptr:
                 # print("p:", p , - sum(local_scores[:p+1]) +  sum(greedy_path[:p+1]))
-            p = ptr[-1]    
-            train_loss += - sum(local_scores[:p+1]) +  sum(greedy_path[:p+1])
+            for p in ptr:
+                train_loss += - sum(local_scores[:p+1]) +  beam_paths[min(p, context_size-1)]
+            # print("loss:", train_loss)
             # train_loss = self._entity_criterion(batch_logits.squeeze(0), entity_labels[b][1:-1])
             # train_loss =  (train_loss * entity_mask[b][1:-1]).sum() / entity_mask[b][1:-1].sum()
             # train_loss /= context_size
@@ -69,30 +76,37 @@ class SpERTLoss(Loss):
             # print(local_scores, sum(local_scores))
             # train_loss += entity_loss
 
-        # if rel_logits != []:
-        #     for b, batch_logits in enumerate(rel_logits):
-        #         # print(batch_logits.shape, rel_labels)
-        #         context_size = entity_mask[b].sum()
-        #         local_scores = []
-        #         greedy_path = []
-        #         ptr = []
-        #         for i in range(1, context_size-2): # no [CLS], no [SEP]
-        #             logits = batch_logits.squeeze(0)[i-1]
-        #             pred = torch.argmax(logits)
-        #             gold = rel_labels[b][i]
-        #             # print("pred:", pred, "gold:", gold)
-        #             # score = self.local_score(logits)
-        #             # print("score:", score)
-        #             local_scores.append(logits[gold])
-        #             greedy_path.append(logits[pred])
+        if rel_logits != []:
+            for b, batch_logits in enumerate(rel_logits):
+                print(batch_logits.shape, rel_labels)
+                batch_rels = rel_labels[b][1:1+batch_logits.shape[1]]
+                context_size = batch_logits.shape[1]
+                local_scores = []
+                beam_paths = []
+                ptr = []
+                beam = BeamSearch(batch_logits.shape[2])
+                for i in range(context_size): 
+                    logits = batch_logits.squeeze(0)[i-1]
+                    beam.advance(logits)
+                    preds = beam.get_curr_state
+                    gold = batch_entities[i]
+                    # print("preds:", preds, "gold:", gold)
+                    local_scores.append(logits[0][gold])
+                    # print("beam:", beam.get_curr_scores)
+                    # print("sum:", torch.logsumexp(beam.get_curr_scores, dim=0))
+                    beam_paths.append(torch.logsumexp(beam.get_curr_scores, dim=0))
+                    # print(beam_paths)
+                    # print("curr scores:", beam_paths)
+                    if gold not in preds:
+                        ptr.append(i)
 
-        #             if pred == gold:
-        #                 ptr.append(i-1)
 
-        #         if ptr == []:
-        #             ptr.append(context_size-4)
-        #         for p in ptr:
-        #             train_loss += - sum(local_scores[:p+1]) + sum(greedy_path[:p+1])
+                if ptr == []:
+                    ptr.append(context_size)
+            # for p in ptr:
+                # print("p:", p , - sum(local_scores[:p+1]) +  sum(greedy_path[:p+1]))
+                for p in ptr:
+                    train_loss += - sum(local_scores[:p+1]) +  beam_paths[min(p, context_size-1)]
 
                 # print(local_scores, sum(local_scores))             
 

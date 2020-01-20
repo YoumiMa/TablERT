@@ -14,9 +14,11 @@ from spert.entities import Dataset
 from spert.evaluator import Evaluator
 from spert.input_reader import JsonInputReader, BaseInputReader
 from spert.loss import SpERTLoss, Loss
+from spert.beam import BeamSearch
 from tqdm import tqdm
 from spert.sampling import Sampler
 from spert.trainer import BaseTrainer
+from spert import util
 
 from typing import List
 
@@ -226,8 +228,11 @@ class SpERTTrainer(BaseTrainer):
                 rel_labels = batch.rel_labels
                 allow_rel = True
 
+            # print("current batch:", batch.encodings)
             entity_logits, rel_logits = model(batch.encodings, batch.ctx_masks, batch.token_masks, start_labels, allow_rel, batch.entity_labels)
             # gold_labels = align_label(batch.entity_labels, batch.token_masks)
+            entity_logits = util.beam_repeat(entity_logits, self.args.beam_size)
+            rel_logits = util.beam_repeat(rel_logits, self.args.beam_size)
             loss = compute_loss.compute(entity_logits, batch.entity_labels, rel_logits, rel_labels)                
             # logging
             iteration += 1
@@ -269,7 +274,8 @@ class SpERTTrainer(BaseTrainer):
                 entity_clf, rel_clf = model(batch.encodings, batch.ctx_masks, batch.token_masks, 
                     input_reader._start_entity_label, evaluate=True)
 
-                
+                entity_clf = util.beam_repeat(entity_clf, self.args.beam_size)
+                rel_clf = util.beam_repeat(rel_clf, self.args.beam_size)
                 # evaluate batch
                 evaluator.eval_batch(entity_clf, rel_clf, batch)
 
