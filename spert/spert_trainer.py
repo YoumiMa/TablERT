@@ -31,8 +31,8 @@ def align_label(label: torch.tensor, token_mask: torch.tensor):
     """ Align tokenized label to word-piece label, masked by token_mask. """
 
     batch_size = label.shape[0]
-    context_size = label.shape[-1]
-
+    context_size = token_mask.shape[1]
+    # print(label, context_size)
     batch_labels = []
 
     for b in range(batch_size):
@@ -230,10 +230,10 @@ class SpERTTrainer(BaseTrainer):
 
             # print("current batch:", batch.encodings)
             entity_logits, rel_logits = model(batch.encodings, batch.ctx_masks, batch.token_masks, start_labels, allow_rel, batch.entity_labels)
-            # gold_labels = align_label(batch.entity_labels, batch.token_masks)
+            gold_labels = align_label(batch.entity_labels, batch.token_masks)
             entity_logits = util.beam_repeat(entity_logits, self.args.beam_size)
             rel_logits = util.beam_repeat(rel_logits, self.args.beam_size)
-            loss = compute_loss.compute(entity_logits, batch.entity_labels, rel_logits, rel_labels)                
+            loss = compute_loss.compute(entity_logits, gold_labels, rel_logits, rel_labels)                
             # logging
             iteration += 1
             global_iteration = epoch * updates_epoch + iteration
@@ -277,7 +277,7 @@ class SpERTTrainer(BaseTrainer):
                 entity_clf = util.beam_repeat(entity_clf, self.args.beam_size)
                 rel_clf = util.beam_repeat(rel_clf, self.args.beam_size)
                 # evaluate batch
-                evaluator.eval_batch(entity_clf, rel_clf, batch)
+                evaluator.eval_batch(entity_clf, rel_clf, batch, input_reader._start_entity_label)
 
         global_iteration = epoch * updates_epoch + iteration
         ner_eval = evaluator.compute_scores()

@@ -30,12 +30,13 @@ class SpERTLoss(Loss):
         # entity loss
 
         train_loss = 0.
+
         for b, batch_logits in enumerate(entity_logits):
 
-            batch_entities = entity_labels[b][1:1+batch_logits.shape[1]]
-            # batch_entities = entity_labels[b]
-
-            # entity_loss = self._entity_criterion(batch_logits.squeeze(0), batch_entities)
+            # batch_entities = entity_labels[b][1:1+batch_logits.shape[1]]
+            batch_entities = entity_labels[b]
+            # # print(batch_logits.shape)
+            # entity_loss = self._entity_criterion(batch_logits.squeeze(0).squeeze(1), batch_entities)
             # train_loss += entity_loss.sum()/batch_logits.shape[1]
 
             context_size = batch_logits.shape[1]
@@ -105,8 +106,10 @@ class SpERTLoss(Loss):
                     ptr.append(context_size)
             # for p in ptr:
                 # print("p:", p , - sum(local_scores[:p+1]) +  sum(greedy_path[:p+1]))
-                for p in ptr:
-                    train_loss += - sum(local_scores[:p+1]) +  beam_paths[min(p, context_size-1)]
+                
+                # for p in ptr:
+                p = ptr[-1]
+                train_loss += - sum(local_scores[:p+1]) +  beam_paths[min(p, context_size-1)]
 
                 # print(local_scores, sum(local_scores))             
 

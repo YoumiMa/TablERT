@@ -3,6 +3,7 @@ import warnings
 from typing import List, Tuple, Dict
 
 import torch
+import math
 from sklearn.metrics import precision_recall_fscore_support as prfs
 from transformers import BertTokenizer
 
@@ -49,9 +50,10 @@ class Evaluator:
 
     def eval_batch(self, batch_entity_clf: List[torch.tensor], 
                     batch_rel_clf: List[torch.tensor],
-                   batch: EvalTensorBatch):
+                   batch: EvalTensorBatch,
+                   start_labels: List[int]):
         batch_size = len(batch_entity_clf)
-        
+
         for i in range(batch_size):
             # get model predictions for sample
             entity_clf = batch_entity_clf[i]
@@ -63,12 +65,12 @@ class Evaluator:
 
             entity_scores, entity_preds = beam_entity.get_best_path 
             # entity_scores, entity_preds = torch.max(entity_clf, dim=2)
+            # print(batch.entity_labels)
+            print("entity_preds:", entity_preds)
 
-            entity_preds = torch.ceil(entity_preds.float() / 4)
-            # print("entity_preds:", entity_preds)
             # print("entity_scores:", entity_scores)            
             ### training (word level):
-            pred_entities = self._convert_pred_entities(entity_preds.squeeze(0), entity_scores.squeeze(0))
+            pred_entities = self._convert_pred_entities(entity_preds.squeeze(0), entity_scores.squeeze(0), batch.token_masks[i], start_labels)
 
             ### fine tuning (token level):
             # pred_entities = self._convert_pred_entities_(entity_preds.squeeze(0), entity_scores.squeeze(0), batch.token_masks[i])
@@ -98,8 +100,8 @@ class Evaluator:
         print("")
         print("--- Entities (NER) ---")
         print("")
-        # merged_gt = self._merge(self._gt_entities)
-        # merged_pred = self._merge(self._pred_entities)
+        # self._gt_entities = self._merge(self._gt_entities)
+        # self._pred_entities = self._merge(self._pred_entities)
         # print("gt:", self._gt_entities)
         # print("pred:", self._pred_entities)
         gt, pred = self._convert_by_setting(self._gt_entities, self._pred_entities, include_entity_types=True)
@@ -139,14 +141,14 @@ class Evaluator:
 
             # relations
             # without entity types
-            rel_example = self._convert_example(doc, self._gt_relations[i], self._pred_relations[i],
-                                                include_entity_types=False, to_html=self._rel_to_html)
-            rel_examples.append(rel_example)
+            # rel_example = self._convert_example(doc, self._gt_relations[i], self._pred_relations[i],
+            #                                     include_entity_types=False, to_html=self._rel_to_html)
+            # rel_examples.append(rel_example)
 
-            # with entity types
-            rel_example_ner = self._convert_example(doc, self._gt_relations[i], self._pred_relations[i],
-                                                    include_entity_types=True, to_html=self._rel_to_html)
-            rel_examples_ner.append(rel_example_ner)
+            # # with entity types
+            # rel_example_ner = self._convert_example(doc, self._gt_relations[i], self._pred_relations[i],
+            #                                         include_entity_types=True, to_html=self._rel_to_html)
+            # rel_examples_ner.append(rel_example_ner)
 
         label, epoch = self._dataset_label, self._epoch
 
@@ -197,44 +199,55 @@ class Evaluator:
             self._gt_entities.append(sample_gt_entities)
             # print("gold:", self._gt_entities)
 
-    def _convert_pred_entities(self, pred_types: torch.tensor, pred_scores: torch.tensor):
+    def _convert_pred_entities(self, pred_types: torch.tensor, pred_scores: torch.tensor, 
+                                token_mask: torch.tensor, start_labels: List[int]):
         #### for word-level.
         converted_preds = []
         # print(pred_types)
         
+        encoding_length = token_mask.shape[0]
         curr_type = 0
         start = 0
 
         for i in range(pred_types.shape[0]):
+            curr_token = token_mask[i+1][1:encoding_length-1].nonzero()
+            # print("curr_token:",curr_token)
             type_idx = pred_types[i].item()
             # print("entity type:", curr_type)
             score = pred_scores[i].item()
             if type_idx != curr_type:
                 if curr_type != 0:
-                    converted_pred = (start, i+1, entity_type, score)
+                    converted_pred = (start, curr_token[0].item()+1, entity_type, score)
                     # print("appended:", start, i, entity_type.index)
                     converted_preds.append(converted_pred)
-                start = i+1
-                curr_type = type_idx
-                entity_type = self._input_reader.get_entity_type(curr_type)
+                if type_idx in start_labels:
+                    start = curr_token[0].item() +1
+                    curr_type = type_idx
+                    entity_type = self._input_reader.get_entity_type(math.ceil(curr_type/4))
         if curr_type != 0:
-            converted_pred = (start, i+2 , entity_type, score)
+            converted_pred = (start, curr_token[-1].item()+2 , entity_type, score)
             # print("appended:", start, i+1, entity_type.index)
             converted_preds.append(converted_pred)            
 
-        # print('???????',[preds[2].index for preds in converted_preds])
+        print('???????',[preds[2].index for preds in converted_preds])
+        exit(-1)
         return converted_preds
 
 
     def _merge(self, entities):
         for i in range(len(entities)):
             to_add = []
+            j = 0
             for j in range(len(entities[i])-1):
+                # print(entities[i][j][2].short_name, entities[i][j+1][2], entities[i][j][2].identifiers == entities[i][j+1][2].identifiers)
                 if entities[i][j][1] == entities[i][j+1][0] and entities[i][j][2] == entities[i][j+1][2]:
                     to_add.append((entities[i][j][0], entities[i][j+1][1], entities[i][j][2]))
                     j += 1
                 else:
                     to_add.append(entities[i][j])
+            if j < len(entities[i]) - 1:
+                to_add.append(entities[i][j])
+            entities[i] = to_add
 
         return entities
 
@@ -247,20 +260,22 @@ class Evaluator:
         encoding_length = token_mask.shape[0]
         for i in range(encoding_length):
             if torch.any(token_mask[i][1:encoding_length-1]): # a token here
+                span = token_mask[i][1:encoding_length-1].nonzero()
+                # print("span:", span)
                 type_ids = pred_types[token_mask[i][1:encoding_length-1]]
                 curr_score = pred_scores[token_mask[i][1:encoding_length-1]][0].item()
-                # print(type_ids)
+                # print("curr:", type_ids)
                 type_id = type_ids[0].item()
                 if type_id != curr_type:
                     if curr_type != 0:
-                        converted_pred = (start, i-1, entity_type, curr_score)
-                        # print("appended:", start+1, i+1, entity_type.index)
+                        converted_pred = (start, span[0].item()+1, entity_type, curr_score)
+                        # print("appended:", start, span[0].item(), entity_type.short_name)
                         converted_preds.append(converted_pred)
-                    start = i-1
+                    start = span[0].item() + 1
                     curr_type = type_id
                     entity_type = self._input_reader.get_entity_type(curr_type)
         if curr_type != 0:
-            converted_pred = (start, i , entity_type, curr_score)
+            converted_pred = (start, span[-1].item()+2 , entity_type, curr_score)
             # print("appended:", start+1, i+2, entity_type.index)
             converted_preds.append(converted_pred)            
 
