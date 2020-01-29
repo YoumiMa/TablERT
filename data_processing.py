@@ -1,6 +1,7 @@
 import codecs
 import sys, os
 import json
+import pickle
 from typing import Dict, List
 
 
@@ -14,14 +15,24 @@ def get_orig_dataset(file: str) -> List[Dict]:
 
 def get_bioul_dataset(file: str) -> Dict[int, List[str]]:
 
-    with codecs.open(file, "r") as f:
-        contents = [line.split() for line in f.readlines()]
+    objects = []
 
-        # Capitalize the first letter.
-        for i in range(len(contents)):
-            contents[i] = [label.title() for label in contents[i]]
+    # dump all infos into objects.
+    with codecs.open(file, "rb") as f:
+        while True:
+            try:
+                objects.append(pickle.load(f))
+            except EOFError:
+                break
 
-    return {int(content[0]): content[2:] for content in contents}
+    contents = objects[3]
+    contents.update(objects[8])
+    for c in contents:
+        contents[c] = contents[c].split()
+    # print(contents)
+    # for idx in bioul_idx:
+
+    return contents
 
 
 def update_ner(orig: List[Dict] , bioul: Dict[int, List[str]]) -> List[Dict]:
@@ -54,6 +65,9 @@ def update_dataset(file: str, bioul_file: str) -> None:
     # new_data = update_rel(new_data)
     
     target_dir = os.path.split(file)[0] + '_bioul'
+
+    os.makedirs(target_dir, exist_ok=True)
+
     with codecs.open(os.path.join(target_dir, os.path.split(file)[1]), "w") as w:
         json.dump(new_data, w)
         

@@ -10,8 +10,8 @@ from transformers import BertTokenizer
 from spert import util
 from spert.entities import Dataset, EntityLabel, RelationLabel, EntityType, RelationType, Entity, Relation, Document
 
-E_PREFIX = {'B-', 'I-', 'L-', 'U-'}
-R_PREFIX = {'R-', 'L-'} # relation Pointing to left/right
+E_PREFIX = ['B-', 'I-', 'L-', 'U-']
+R_PREFIX = ['R-', 'L-'] # relation Pointing to left/right
 
 class BaseInputReader(ABC):
     def __init__(self, types_path: str, tokenizer: BertTokenizer, logger: Logger = None):
@@ -29,6 +29,7 @@ class BaseInputReader(ABC):
         self._idx2relation_type = OrderedDict()
 
         self._start_entity_label = []
+        self._end_entity_label = []
         self._right_rel_label = []
         # entities
         # add 'None' entity label
@@ -50,6 +51,8 @@ class BaseInputReader(ABC):
                 entity_labels.append(entity_label)
                 if pre in ['B-', 'U-']:
                     self._start_entity_label.append(4 * i + j + 1)
+                if pre in ['L-', 'U-']:
+                    self._end_entity_label.append(4 * i + j + 1)
             entity_type = EntityType(entity_labels , i+1, v['short'], v['verbose'])
             self._entity_types[key] = entity_type
             self._idx2entity_type[i+1] = entity_type
@@ -227,7 +230,7 @@ class JsonInputReader(BaseInputReader):
         for i, token_phrase in enumerate(jtokens):
             token_encoding = self._tokenizer.encode(token_phrase, add_special_tokens=False)
             span_start, span_end = (len(doc_encoding), len(doc_encoding) + len(token_encoding))
-
+            # print("token encoding:", token_encoding)
             token = dataset.create_token(i, span_start, span_end, token_phrase)
 
             doc_tokens.append(token)

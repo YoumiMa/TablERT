@@ -51,7 +51,7 @@ class Evaluator:
     def eval_batch(self, batch_entity_clf: List[torch.tensor], 
                     batch_rel_clf: List[torch.tensor],
                    batch: EvalTensorBatch,
-                   start_labels: List[int]):
+                   start_labels: List[int], end_labels: List[int]):
         batch_size = len(batch_entity_clf)
 
         for i in range(batch_size):
@@ -66,11 +66,12 @@ class Evaluator:
             entity_scores, entity_preds = beam_entity.get_best_path 
             # entity_scores, entity_preds = torch.max(entity_clf, dim=2)
             # print(batch.entity_labels)
-            print("entity_preds:", entity_preds)
+            # print("entity_preds:", entity_preds)
 
             # print("entity_scores:", entity_scores)            
             ### training (word level):
-            pred_entities = self._convert_pred_entities(entity_preds.squeeze(0), entity_scores.squeeze(0), batch.token_masks[i], start_labels)
+            pred_entities = self._convert_pred_entities(entity_preds.squeeze(0), entity_scores.squeeze(0), 
+                batch.token_masks[i], start_labels, end_labels)
 
             ### fine tuning (token level):
             # pred_entities = self._convert_pred_entities_(entity_preds.squeeze(0), entity_scores.squeeze(0), batch.token_masks[i])
@@ -200,14 +201,15 @@ class Evaluator:
             # print("gold:", self._gt_entities)
 
     def _convert_pred_entities(self, pred_types: torch.tensor, pred_scores: torch.tensor, 
-                                token_mask: torch.tensor, start_labels: List[int]):
+                                token_mask: torch.tensor, 
+                                start_labels: List[int], end_labels: List[int]):
         #### for word-level.
         converted_preds = []
         # print(pred_types)
         
         encoding_length = token_mask.shape[0]
         curr_type = 0
-        start = 0
+        start = 1
 
         for i in range(pred_types.shape[0]):
             curr_token = token_mask[i+1][1:encoding_length-1].nonzero()
@@ -215,22 +217,29 @@ class Evaluator:
             type_idx = pred_types[i].item()
             # print("entity type:", curr_type)
             score = pred_scores[i].item()
-            if type_idx != curr_type:
-                if curr_type != 0:
-                    converted_pred = (start, curr_token[0].item()+1, entity_type, score)
-                    # print("appended:", start, i, entity_type.index)
-                    converted_preds.append(converted_pred)
-                if type_idx in start_labels:
-                    start = curr_token[0].item() +1
-                    curr_type = type_idx
-                    entity_type = self._input_reader.get_entity_type(math.ceil(curr_type/4))
-        if curr_type != 0:
-            converted_pred = (start, curr_token[-1].item()+2 , entity_type, score)
-            # print("appended:", start, i+1, entity_type.index)
-            converted_preds.append(converted_pred)            
+            
+            if (math.ceil(type_idx/4) != curr_type or type_idx in start_labels) and curr_type != 0:
 
-        print('???????',[preds[2].index for preds in converted_preds])
-        exit(-1)
+                end = curr_token[0].item() + 1
+                converted_pred = (start, end, entity_type, score)
+                # print(i, "appended:", converted_pred)
+                converted_preds.append(converted_pred)                
+                start = curr_token[0].item() + 1
+               
+
+            curr_type = math.ceil(type_idx/4)
+            entity_type = self._input_reader.get_entity_type(curr_type)
+
+            if type_idx == 0:
+                start = curr_token[-1].item() + 2
+        
+        if curr_type != 0:
+                converted_pred = (start, curr_token[-1].item() + 2, entity_type, score)
+                # print(i, "appended:", converted_pred)
+                converted_preds.append(converted_pred)             
+
+
+        # exit(-1)
         return converted_preds
 
 
@@ -451,7 +460,7 @@ class Evaluator:
             precision, recall, f1 = [100] * 3
 
         scores = [p[-1] for p in pred]
-        # pred = [p[:-1] for p in pred]
+        pred = [p[:-1] for p in pred]
         union = set(gt + pred)
 
         # true positives
@@ -464,7 +473,6 @@ class Evaluator:
         for s in union:
             type_verbose = s[2].verbose_name
             # print("vvvv:", type_verbose)
-
             if s in gt:
                 if s in pred:
                     score = scores[pred.index(s)]

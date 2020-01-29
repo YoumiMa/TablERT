@@ -63,6 +63,10 @@ class SpERTTrainer(BaseTrainer):
         # sampler (create and batch training/evaluation samples)
         self._sampler = Sampler(processes=args.sampling_processes, limit=args.sampling_limit)
 
+        self._best_results['ner_micro_f1'] = 0
+        self._best_results['rel_micro_f1'] = 0
+        self._best_results['rel_ner_micro_f1'] = 0
+
     def train(self, train_path: str, valid_path: str, types_path: str, input_reader_cls: BaseInputReader):
         args = self.args
         train_label, valid_label = 'train', 'valid'
@@ -137,8 +141,10 @@ class SpERTTrainer(BaseTrainer):
 
             # eval validation sets
             if not args.final_eval or (epoch == args.epochs - 1):
-                acc = self._eval(model, validation_dataset, input_reader, epoch + 1, updates_epoch)
-                # if acc[]
+                ner_acc, rel_acc, rel_ner_acc = self._eval(model, validation_dataset, input_reader, epoch + 1, updates_epoch)
+                extra = dict(epoch=epoch, updates_epoch=updates_epoch, epoch_iteration=0)
+                self._save_best(model=model, optimizer=optimizer if self.args.save_optimizer else None, 
+                    accuracy=ner_acc[2], iteration=epoch * updates_epoch, label='ner_micro_f1', extra=extra)
 
         # save final model
         extra = dict(epoch=args.epochs, updates_epoch=updates_epoch, epoch_iteration=0)
@@ -277,7 +283,8 @@ class SpERTTrainer(BaseTrainer):
                 entity_clf = util.beam_repeat(entity_clf, self.args.beam_size)
                 rel_clf = util.beam_repeat(rel_clf, self.args.beam_size)
                 # evaluate batch
-                evaluator.eval_batch(entity_clf, rel_clf, batch, input_reader._start_entity_label)
+                evaluator.eval_batch(entity_clf, rel_clf, batch, 
+                                    input_reader._start_entity_label, input_reader._end_entity_label)
 
         global_iteration = epoch * updates_epoch + iteration
         ner_eval = evaluator.compute_scores()
