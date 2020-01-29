@@ -31,11 +31,12 @@ def _add_common_args(arg_parser):
     arg_parser.add_argument('--cpu', action='store_true', default=False,
                             help="If true, train/evaluate on CPU even if a CUDA device is available")
     arg_parser.add_argument('--eval_batch_size', type=int, default=1, help="Evaluation batch size")
+    arg_parser.add_argument('--beam_size', type=int, default=3, help="Beam size for beam search")
     arg_parser.add_argument('--max_pairs', type=int, default=1000,
                             help="Maximum entity pairs to process during training/evaluation")
     arg_parser.add_argument('--rel_filter_threshold', type=float, default=0.4, help="Filter threshold for relations")
     arg_parser.add_argument('--size_embedding', type=int, default=25, help="Dimensionality of size embedding")
-    arg_parser.add_argument('--entity_label_embedding', type=int, default=768, help="Dimensionality of entity label embedding")
+    arg_parser.add_argument('--entity_label_embedding', type=int, default=50, help="Dimensionality of entity label embedding")
     arg_parser.add_argument('--prop_drop', type=float, default=0.1, help="Probability of dropout used in SpERT")
     arg_parser.add_argument('--freeze_transformer', action='store_true', default=False, help="Freeze BERT weights")
 
@@ -65,6 +66,7 @@ def train_argparser():
     # Model / Training
     arg_parser.add_argument('--train_batch_size', type=int, default=2, help="Training batch size")
     arg_parser.add_argument('--epochs', type=int, default=20, help="Number of epochs")
+    arg_parser.add_argument('--iter_before_rel', type=int, default=20, help="Number of iterations before carrying out relation detections")
     arg_parser.add_argument('--neg_entity_count', type=int, default=0,
                             help="Number of negative entity samples per document (sentence)")
     arg_parser.add_argument('--neg_relation_count', type=int, default=0,
