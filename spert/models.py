@@ -70,7 +70,7 @@ def align_bert_embeddings(h: torch.tensor, token_mask: torch.tensor, cls_repr: t
 
     for i in range(context_size):
         if torch.any(token_mask[i]):
-            word_embeddings_lst.append(mean_pooling_with_cls(h, token_mask[i], cls_repr))
+            word_embeddings_lst.append(max_pooling(h, token_mask[i]))
 
     word_embeddings = torch.stack(word_embeddings_lst, dim=0)
     return word_embeddings

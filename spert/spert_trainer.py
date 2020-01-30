@@ -287,14 +287,14 @@ class SpERTTrainer(BaseTrainer):
                                     input_reader._start_entity_label, input_reader._end_entity_label)
 
         global_iteration = epoch * updates_epoch + iteration
-        ner_eval = evaluator.compute_scores()
-        # self._log_eval(*ner_eval, *rel_eval, *rel_ner_eval,
-                       # epoch, iteration, global_iteration, dataset.label)
+        ner_eval, rel_eval, rel_ner_eval = evaluator.compute_scores()
+        self._log_eval(*ner_eval, *rel_eval, *rel_ner_eval,
+                       epoch, iteration, global_iteration, dataset.label)
 
         if self.args.store_examples:
             evaluator.store_examples()
 
-        return ner_eval
+        return ner_eval, rel_eval, rel_ner_eval
 
     def _get_optimizer_params(self, model):
         param_optimizer = list(model.named_parameters())
