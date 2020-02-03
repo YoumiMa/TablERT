@@ -70,7 +70,7 @@ class Evaluator:
 
             # print("entity_scores:", entity_scores)            
             ### training (word level):
-            pred_entities = self._convert_pred_entities_end(entity_preds.squeeze(0), entity_scores.squeeze(0), 
+            pred_entities = self._convert_pred_entities_start(entity_preds.squeeze(0), entity_scores.squeeze(0), 
                 batch.token_masks[i], start_labels, end_labels)
 
             ### fine tuning (token level):
