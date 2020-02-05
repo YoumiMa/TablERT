@@ -86,7 +86,7 @@ class SpERTLoss(Loss):
 
         if rel_logits != []:
             for b, batch_logits in enumerate(rel_logits):
-                print(batch_logits.shape, rel_labels)
+                # print(batch_logits.shape, rel_labels)
                 batch_rels = rel_labels[b][1:1+batch_logits.shape[1]]
                 context_size = batch_logits.shape[1]
                 local_scores = []
@@ -97,7 +97,7 @@ class SpERTLoss(Loss):
                     logits = batch_logits.squeeze(0)[i-1]
                     beam.advance(logits)
                     preds = beam.get_curr_state
-                    gold = batch_entities[i]
+                    gold = batch_rels[i]
                     # print("preds:", preds, "gold:", gold)
                     local_scores.append(logits[0][gold])
                     # print("beam:", beam.get_curr_scores)

@@ -275,7 +275,7 @@ def _create_train_sample(doc, context_size, shuffle = False):
 
     # positive relations
     rel_spans, rel_types= [], []
-    rel_labels = [[0 for i in range(j) ]  for j in range(context_size-3, 0, -1)]
+    rel_labels = torch.zeros((context_size, context_size), dtype=torch.long)
     for rel in doc.relations:
         s1, s2 = rel.head_entity.span, rel.tail_entity.span
         rel_spans.append((s1, s2))
@@ -285,11 +285,13 @@ def _create_train_sample(doc, context_size, shuffle = False):
         latter = rel.tail_entity if s1[0] < s2[0] else rel.head_entity
         for i in range(former.span[0], former.span[1]):
             for j in range(latter.span[0], latter.span[1]):
-                rel_labels[i-1][j-i-1] = rel.relation_label.index
+                rel_labels[i][j] = rel.relation_label.index
 
 
     rel_types = torch.tensor([r.index for r in rel_types], dtype=torch.long)
-    rel_labels = torch.tensor(sum(rel_labels, []))
+    # rel_labels = torch.tensor(sum(rel_labels, []))
+    # rel_labels = util.padded_stack(rel_labels)
+    # print(rel_labels, rel_labels.shape)
 
     # create tensors
     # token indices
@@ -338,7 +340,7 @@ def _create_eval_sample(doc, context_size):
 
     # positive relations
     rel_spans, rel_types= [], []
-    rel_labels = [[0 for i in range(j) ]  for j in range(context_size-3, 0, -1)]
+    rel_labels = torch.zeros((context_size, context_size), dtype=torch.long)
     for rel in doc.relations:
         s1, s2 = rel.head_entity.span, rel.tail_entity.span
         rel_spans.append((s1, s2))
@@ -348,10 +350,10 @@ def _create_eval_sample(doc, context_size):
         latter = rel.tail_entity if s1[0] < s2[0] else rel.head_entity
         for i in range(former.span[0], former.span[1]):
             for j in range(latter.span[0], latter.span[1]):
-                rel_labels[i-1][j-i-1] = rel.relation_label.index
+                rel_labels[i][j] = rel.relation_label.index
 
     rel_types = torch.tensor([r.index for r in rel_types], dtype=torch.long)
-    rel_labels = torch.tensor(sum(rel_labels, []))
+    # rel_labels = torch.tensor(sum(rel_labels, []))
 
     # create tensors
     # token indices

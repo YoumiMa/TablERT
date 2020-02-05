@@ -208,7 +208,7 @@ class JsonInputReader(BaseInputReader):
 
         # parse tokens
         doc_tokens, doc_encoding = self._parse_tokens(jtokens, dataset)
-        # print([t.phrase for t in doc_tokens])
+
         # parse entity mentions
         entities = self._parse_entities(jtags, doc_tokens, dataset)
 
@@ -230,13 +230,11 @@ class JsonInputReader(BaseInputReader):
         for i, token_phrase in enumerate(jtokens):
             token_encoding = self._tokenizer.encode(token_phrase, add_special_tokens=False)
             span_start, span_end = (len(doc_encoding), len(doc_encoding) + len(token_encoding))
-            # print("token encoding:", token_encoding)
             token = dataset.create_token(i, span_start, span_end, token_phrase)
-
+            # print("encodings:", self._tokenizer.convert_ids_to_tokens(token_encoding))
             doc_tokens.append(token)
             doc_encoding += token_encoding
         doc_encoding += [self._tokenizer.convert_tokens_to_ids('[SEP]')]
-
         return doc_tokens, doc_encoding
 
     def _parse_entities(self, jtags, doc_tokens, dataset) -> List[Entity]:

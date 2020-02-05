@@ -27,23 +27,41 @@ import math
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 
 
-def align_label(label: torch.tensor, token_mask: torch.tensor):
+def align_label(entity: torch.tensor, rel: torch.tensor, token_mask: torch.tensor):
     """ Align tokenized label to word-piece label, masked by token_mask. """
 
-    batch_size = label.shape[0]
+    batch_size = entity.shape[0]
     context_size = token_mask.shape[1]
-    # print(label, context_size)
-    batch_labels = []
-
+    # print("rel:", rel)
+    batch_entity_labels = []
+    batch_rel_labels = []
     for b in range(batch_size):
         word_labels_lst = []
-        for i in range(context_size): # no [CLS], no [SEP]
+        rel_labels_lst = []
+        for i in range(context_size): 
             if torch.any(token_mask[b, i]):
-                curr_label = label[b, token_mask[b, i]]
-                word_labels_lst.append(torch.unique(curr_label))
-        batch_labels.append(torch.cat(word_labels_lst[1:-1]))
+                curr_entity = entity[b, token_mask[b, i]]
+                word_labels_lst.append(torch.unique(curr_entity))
+        batch_entity_labels.append(torch.cat(word_labels_lst[1:-1]))
+        
+        # rel_labels_lst = torch.zeros((len(word_labels_lst)-2, len(word_labels_lst)-2), dtype=torch.long)
+        rel_labels_lst = [torch.zeros(j, dtype=torch.long) for j in range(len(word_labels_lst)-2, 0, -1)]
+        # print("rel:", rel_labels_lst)
+        for i in range(1,len(word_labels_lst)-1):
+            for j in range(i+1, len(word_labels_lst)-1):
+                curr_rel = rel[b, i, token_mask[b,j]]
+                # print("curr_rel:", curr_rel)
+                # rel_labels_lst[i-1][j-1] = torch.unique(curr_rel)
+                rel_labels_lst[i-1][j-i-1] = torch.unique(curr_rel)
+            # [token_mask[b,i]]
 
-    return batch_labels
+        # batch_rel_labels.append(rel_labels_lst)
+        batch_rel_labels.append(torch.cat(rel_labels_lst))
+
+    # print("entity:", batch_entity_labels)
+    # print("rel:", batch_rel_labels)
+    # exit(-1)
+    return batch_entity_labels, batch_rel_labels
 
 
 
@@ -142,9 +160,9 @@ class SpERTTrainer(BaseTrainer):
             # eval validation sets
             if not args.final_eval or (epoch == args.epochs - 1):
                 ner_acc, rel_acc, rel_ner_acc = self._eval(model, validation_dataset, input_reader, epoch + 1, updates_epoch)
-                extra = dict(epoch=epoch, updates_epoch=updates_epoch, epoch_iteration=0)
-                self._save_best(model=model, optimizer=optimizer if self.args.save_optimizer else None, 
-                    accuracy=ner_acc[2], iteration=epoch * updates_epoch, label='ner_micro_f1', extra=extra)
+                # extra = dict(epoch=epoch, updates_epoch=updates_epoch, epoch_iteration=0)
+                # self._save_best(model=model, optimizer=optimizer if self.args.save_optimizer else None, 
+                    # accuracy=ner_acc[2], iteration=epoch * updates_epoch, label='ner_micro_f1', extra=extra)
 
         # save final model
         extra = dict(epoch=args.epochs, updates_epoch=updates_epoch, epoch_iteration=0)
@@ -236,10 +254,13 @@ class SpERTTrainer(BaseTrainer):
 
             # print("current batch:", batch.encodings)
             entity_logits, rel_logits = model(batch.encodings, batch.ctx_masks, batch.token_masks, start_labels, allow_rel, batch.entity_labels)
-            gold_labels = align_label(batch.entity_labels, batch.token_masks)
+            entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.token_masks)
+            rel_labels = [rel_label.to(self._device) for rel_label in rel_labels]
             entity_logits = util.beam_repeat(entity_logits, self.args.beam_size)
             rel_logits = util.beam_repeat(rel_logits, self.args.beam_size)
-            loss = compute_loss.compute(entity_logits, gold_labels, rel_logits, rel_labels)                
+            # print("rel logits:", rel_logits)
+            # exit(0)
+            loss = compute_loss.compute(entity_logits, entity_labels, rel_logits, rel_labels)                
             # logging
             iteration += 1
             global_iteration = epoch * updates_epoch + iteration
