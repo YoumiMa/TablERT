@@ -66,7 +66,7 @@ def train_argparser():
     # Model / Training
     arg_parser.add_argument('--train_batch_size', type=int, default=2, help="Training batch size")
     arg_parser.add_argument('--epochs', type=int, default=20, help="Number of epochs")
-    arg_parser.add_argument('--iter_before_rel', type=int, default=20, help="Number of iterations before carrying out relation detections")
+    arg_parser.add_argument('--epoch_before_rel', type=int, default=20, help="Number of epoches before carrying out relation detections")
     arg_parser.add_argument('--neg_entity_count', type=int, default=0,
                             help="Number of negative entity samples per document (sentence)")
     arg_parser.add_argument('--neg_relation_count', type=int, default=0,

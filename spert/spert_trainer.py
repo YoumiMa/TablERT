@@ -45,7 +45,7 @@ def align_label(entity: torch.tensor, rel: torch.tensor, token_mask: torch.tenso
         batch_entity_labels.append(torch.cat(word_labels_lst[1:-1]))
         
         # rel_labels_lst = torch.zeros((len(word_labels_lst)-2, len(word_labels_lst)-2), dtype=torch.long)
-        rel_labels_lst = [torch.zeros(j, dtype=torch.long) for j in range(len(word_labels_lst)-2, 0, -1)]
+        rel_labels_lst = [torch.zeros(j, dtype=torch.long) for j in range(len(word_labels_lst)-3, 0, -1)]
         # print("rel:", rel_labels_lst)
         for i in range(1,len(word_labels_lst)-1):
             for j in range(i+1, len(word_labels_lst)-1):
@@ -59,7 +59,7 @@ def align_label(entity: torch.tensor, rel: torch.tensor, token_mask: torch.tenso
         batch_rel_labels.append(torch.cat(rel_labels_lst))
 
     # print("entity:", batch_entity_labels)
-    # print("rel:", batch_rel_labels)
+    # print("rel:", batch_rel_labels, torch.cat(rel_labels_lst).shape)
     # exit(-1)
     return batch_entity_labels, batch_rel_labels
 
@@ -244,7 +244,7 @@ class SpERTTrainer(BaseTrainer):
             model.train()
             batch = batch.to(self._device)
             # print("iteration:", global_iteration)
-            if epoch < self.args.iter_before_rel:
+            if epoch < self.args.epoch_before_rel:
                 # do entity detection only.
                 rel_labels = None
                 allow_rel = False
@@ -255,10 +255,12 @@ class SpERTTrainer(BaseTrainer):
             # print("current batch:", batch.encodings)
             entity_logits, rel_logits = model(batch.encodings, batch.ctx_masks, batch.token_masks, start_labels, allow_rel, batch.entity_labels)
             entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.token_masks)
+            # entity_labels = batch.entity_labels
+            # print("rel logits:", rel_logits)
             rel_labels = [rel_label.to(self._device) for rel_label in rel_labels]
+            # print("rel labels:", rel_labels)
             entity_logits = util.beam_repeat(entity_logits, self.args.beam_size)
             rel_logits = util.beam_repeat(rel_logits, self.args.beam_size)
-            # print("rel logits:", rel_logits)
             # exit(0)
             loss = compute_loss.compute(entity_logits, entity_labels, rel_logits, rel_labels)                
             # logging

@@ -57,7 +57,7 @@ class Evaluator:
         for i in range(batch_size):
             # get model predictions for sample
             entity_clf = batch_entity_clf[i]
-            # rel_clf = batch_rel_clf[i]
+            rel_clf = batch_rel_clf[i]
             beam_entity = BeamSearch(entity_clf.shape[2])
             context_size = entity_clf.shape[1]
             for j in range(context_size):
@@ -74,25 +74,30 @@ class Evaluator:
                 batch.token_masks[i], start_labels, end_labels)
 
             ### fine tuning (token level):
-            # pred_entities = self._convert_pred_entities_(entity_preds.squeeze(0), entity_scores.squeeze(0), batch.token_masks[i])
+            # pred_entities = self._convert_pred_entities_(entity_preds.squeeze(0), entity_scores.squeeze(0), 
+                # batch.token_masks[i], start_labels)
             # print("pred_entities:", pred_entities)           
             
             self._pred_entities.append(pred_entities)
-            # print("preds:", pred_entities)
+            # # print("preds:", pred_entities)
 
-            # beam_rel = BeamSearch(rel_clf.shape[2])
-            # context_size = rel_clf.shape[1]
-            # for j in range(context_size):
-            #     beam_rel.advance(rel_clf.squeeze(0)[j])
+            beam_rel = BeamSearch(rel_clf.shape[2])
+            context_size = rel_clf.shape[1]
+            # print("rel clf:", rel_clf.shape)
+            # exit(-1)
+            for j in range(context_size):
+                beam_rel.advance(rel_clf.squeeze(0)[j])
 
-            # rel_scores, rel_preds = beam_rel.get_best_path
+            rel_scores, rel_preds = beam_rel.get_best_path
 
-            # # # print("rel_preds:", rel_preds)
-            # rel_preds_split = rel_preds.squeeze(0).split([i for i in range(entity_preds.shape[-1]-1, 0, -1)],dim=0)
-
-            # pred_relations = self._convert_pred_relations(rel_preds_split, rel_scores.squeeze(0), 
-            #                                                 pred_entities)
-            # self._pred_relations.append(pred_relations)    
+            # print("preds", rel_preds)
+            rel_preds_split = rel_preds.split([i for i in range(entity_preds.shape[-1]-1, 0, -1)],dim=0)
+            # print("split:",rel_preds_split)
+            pred_relations = self._convert_pred_relations(rel_preds_split, rel_scores, 
+                                                            pred_entities, batch.token_masks[i])
+            # print("preds converted:", pred_relations)
+            # print("="*50)
+            self._pred_relations.append(pred_relations)    
 
 
     def compute_scores(self):
@@ -198,7 +203,7 @@ class Evaluator:
             # print(sample_gt_relations)
             self._gt_relations.append(sample_gt_relations)
             self._gt_entities.append(sample_gt_entities)
-            # print("gold:", self._gt_entities)
+            # print("gold:", self._gt_relations)
 
     def _convert_pred_entities_end(self, pred_types: torch.tensor, pred_scores: torch.tensor, 
                                 token_mask: torch.tensor, 
@@ -340,7 +345,8 @@ class Evaluator:
 
         return entities
 
-    def _convert_pred_entities_(self, pred_types: torch.tensor, pred_scores: torch.tensor, token_mask: torch.tensor):
+    def _convert_pred_entities_(self, pred_types: torch.tensor, pred_scores: torch.tensor, 
+        token_mask: torch.tensor, start_labels: List[int]):
         converted_preds = []
         # print(pred_types)
 
@@ -354,8 +360,8 @@ class Evaluator:
                 type_ids = pred_types[token_mask[i][1:encoding_length-1]]
                 curr_score = pred_scores[token_mask[i][1:encoding_length-1]][0].item()
                 # print("curr:", type_ids)
-                type_id = type_ids[0].item()
-                if type_id != curr_type:
+                type_id = math.ceil(type_ids[0]/4)
+                if type_id != curr_type or type_id in start_labels:
                     if curr_type != 0:
                         converted_pred = (start, span[0].item()+1, entity_type, curr_score)
                         # print("appended:", start, span[0].item(), entity_type.short_name)
@@ -372,9 +378,9 @@ class Evaluator:
         return converted_preds
 
     def _convert_pred_relations(self, pred_types: List[torch.tensor], pred_scores: torch.tensor, 
-                                pred_entities: List[tuple]):
+                                pred_entities: List[tuple], token_mask: torch.tensor):
         converted_rels = []
-        # print(pred_types)
+        # print("pred types:", pred_types)
         for i in range(len(pred_types)):
             for j in range(pred_types[i].shape[-1]):
                 label_idx = pred_types[i][j].float()
@@ -386,10 +392,10 @@ class Evaluator:
                     else: # L-X
                         head_idx = i + j + 1
                         tail_idx = i
-                    # print(head_idx, tail_idx)
-                    head_entity = self._find_entity(head_idx, pred_entities)
+                    # print(head_idx, tail_idx, label_idx)
+                    head_entity = self._find_entity(head_idx + 1, token_mask, pred_entities)
                     # print("head entity:", head_entity)
-                    tail_entity = self._find_entity(tail_idx, pred_entities)
+                    tail_entity = self._find_entity(tail_idx + 1, token_mask, pred_entities)
                     # print("tail entity:", tail_entity)
                     if head_entity == None or tail_entity == None:
                         continue
@@ -406,9 +412,12 @@ class Evaluator:
         # print(converted_rels)
         return converted_rels
 
-    def _find_entity(self, idx, entities):
+    def _find_entity(self, idx, token_mask, entities):
+        span = token_mask[idx].nonzero().squeeze(0)
+        # print("Span:", span)
         for e in entities:
-            if e[0]-1 <= idx < e[1]-1 :
+            # print("e:", e)
+            if span[0] == e[0]:
                 return e
         return None
 
@@ -567,7 +576,7 @@ class Evaluator:
         fp = sorted(fp, key=lambda p: p[-1], reverse=True)
 
         text = self._prettify(self._text_encoder.decode(encoding))
-        # print("ttttpppp:", tp)
+        print("ttttpppp:", tp)
         return dict(text=text, tp=tp, fn=fn, fp=fp, precision=precision, recall=recall, f1=f1, length=len(doc.tokens))
 
     def _entity_to_html(self, entity: Tuple, encoding: List[int]):

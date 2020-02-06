@@ -158,15 +158,11 @@ class TableF(BertPreTrainedModel):
                 i: int,  j: int, i_embedding: torch.tensor, j_embedding: torch.tensor,
                 entity_masks: torch.tensor, is_eval: bool):
 
-        # print(i,j)
+
         # print(entity_masks)
         context_size = entity_masks.shape[-1]
         i_repr = h[i].unsqueeze(0)
         j_repr = h[j].unsqueeze(0)
-
-        # label embedding.
-        i_embedding = i_embedding.unsqueeze(0)
-        j_embedding = j_embedding.unsqueeze(0)
         
         # maxpool between previous entity and current position.
         before_mask = entity_masks[i].contiguous()
@@ -195,7 +191,6 @@ class TableF(BertPreTrainedModel):
         after_repr = h[:context_size][after_mask]
         # print(after_repr.shape)
         after_pool = after_repr.max(dim=0)[0].unsqueeze(0)
-
 
         # print("=" * 50)
         # concat them for linear classification.
@@ -288,18 +283,15 @@ class TableF(BertPreTrainedModel):
 
             # Relation classification.
             if allow_rel:
+                
+                preds = torch.argmax(torch.stack(entity_logits_batch, dim=1), dim=2)
+                label_embeddings = self.entity_label_embedding(preds)
+                # print(label_embeddings)
                 for i in range(1, context_size-1):
-
-                    pred_i = torch.argmax(entity_logits_batch[i-1])
-                    i_embedding = self.entity_label_embedding(pred_i)
-                    # print("i:", i)
                     for j in range(i+1, context_size-1):
-
-                        pred_j = torch.argmax(entity_logits_batch[j-1])
-                        j_embedding = self.entity_label_embedding(pred_j)
-
                         curr_rel_logits = self._forward_relation(h[batch], token_mask[batch],
-                                            i, j, i_embedding, j_embedding, entity_masks, False)
+                                            i, j, label_embeddings[:,i-1], label_embeddings[:,j-1],
+                                            entity_masks, False)
                         # print("i,j,logits", i, j, curr_rel_logits)
                         rel_logits_batch.append(curr_rel_logits)
                 # print("length:", len(rel_logits_batch))
@@ -377,29 +369,22 @@ class TableF(BertPreTrainedModel):
             all_entity_logits.append(torch.stack(entity_logits_batch, dim=1))
             # print(all_entity_logits)
             # print("entity mask:", entity_masks)
+            
+
             # Relation classification.
 
+            preds = torch.argmax(torch.stack(entity_logits_batch, dim=1), dim=2)
+            label_embeddings = self.entity_label_embedding(preds)
+
             for i in range(1, context_size-1):
-
-                pred_i = torch.argmax(entity_logits_batch[i-1])
-                i_embedding = self.entity_label_embedding(pred_i)
-                # print("i:", i)
                 for j in range(i+1, context_size-1):
-
-                    pred_j = torch.argmax(entity_logits_batch[j-1])
-                    # print("j-1:", j-1, pred_j)
-                    j_embedding = self.entity_label_embedding(pred_j)
-
                     curr_rel_logits = self._forward_relation(h[batch], token_mask[batch],
-                                        i, j, i_embedding, j_embedding, entity_masks, True)
-                    # print("i,j,logits", i-1, j-1, curr_rel_logits.argmax(dim=1))
+                                        i, j, label_embeddings[:,i-1], label_embeddings[:,j-1],
+                                        entity_masks, True)
+                    # print("i,j,logits", i, j, curr_rel_logits)
                     rel_logits_batch.append(curr_rel_logits)
             # print("length:", len(rel_logits_batch))
-            # print("logits batch:", rel_logits_batch)
             all_rel_logits.append(torch.stack(rel_logits_batch, dim=1))
-                    
-            entity_logits_batch = []
-            rel_logits_batch = []
 
 
         # apply softmax
@@ -407,7 +392,7 @@ class TableF(BertPreTrainedModel):
             # print(all_entity_logits[batch])
             all_entity_logits[batch] = torch.softmax(all_entity_logits[batch], dim=2)
             # print("after softmax:", all_entity_logits[batch])
-            # all_rel_logits[batch] = torch.softmax(all_rel_logits[batch], dim=2)
+            all_rel_logits[batch] = torch.softmax(all_rel_logits[batch], dim=2)
 
         return all_entity_logits, all_rel_logits
 

@@ -87,18 +87,19 @@ class SpERTLoss(Loss):
         if rel_logits != []:
             for b, batch_logits in enumerate(rel_logits):
                 # print(batch_logits.shape, rel_labels)
-                batch_rels = rel_labels[b][1:1+batch_logits.shape[1]]
+                # exit(0)
+                batch_rels = rel_labels[b]
                 context_size = batch_logits.shape[1]
                 local_scores = []
                 beam_paths = []
                 ptr = []
                 beam = BeamSearch(batch_logits.shape[2])
                 for i in range(context_size): 
-                    logits = batch_logits.squeeze(0)[i-1]
+                    logits = batch_logits.squeeze(0)[i]
                     beam.advance(logits)
                     preds = beam.get_curr_state
                     gold = batch_rels[i]
-                    # print("preds:", preds, "gold:", gold)
+                    # print("!!!!preds:", preds, "gold:", gold)
                     local_scores.append(logits[0][gold])
                     # print("beam:", beam.get_curr_scores)
                     # print("sum:", torch.logsumexp(beam.get_curr_scores, dim=0))
