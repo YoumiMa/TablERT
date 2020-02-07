@@ -17,7 +17,7 @@ from typing import List
 
 # import torchcrf
 import json
-
+import itertools
 
 def get_token(h: torch.tensor, x: torch.tensor, token: int):
     """ Get specific token embedding (e.g. [CLS]) """
@@ -234,8 +234,6 @@ class TableF(BertPreTrainedModel):
             
 
             # word_h = h[batch]
-
-
             # context_size = context_mask[batch].long().sum().item()
             context_size = word_h.shape[0]
             # print("word_h:", word_h.shape)
@@ -246,6 +244,8 @@ class TableF(BertPreTrainedModel):
             prev_i = 0
             prev_label = 0
 
+            word_pairs = itertools.combinations(range(context_size-2), 2)
+            
             # Entity classification.
             for i in range(1, context_size-1): # no [CLS], no [SEP] 
                 # mask from previous entity token until current position.
@@ -283,19 +283,17 @@ class TableF(BertPreTrainedModel):
 
             # Relation classification.
             if allow_rel:
-                
+
                 preds = torch.argmax(torch.stack(entity_logits_batch, dim=1), dim=2)
                 label_embeddings = self.entity_label_embedding(preds)
                 # print(label_embeddings)
                 for i in range(1, context_size-1):
                     for j in range(i+1, context_size-1):
-                        curr_rel_logits = self._forward_relation(h[batch], token_mask[batch],
-                                            i, j, label_embeddings[:,i-1], label_embeddings[:,j-1],
-                                            entity_masks, False)
+                        curr_rel_logits = 1
                         # print("i,j,logits", i, j, curr_rel_logits)
-                        rel_logits_batch.append(curr_rel_logits)
+                        # rel_logits_batch.append(curr_rel_logits)
                 # print("length:", len(rel_logits_batch))
-                all_rel_logits.append(torch.stack(rel_logits_batch, dim=1))
+                # all_rel_logits.append(torch.stack(rel_logits_batch, dim=1))
                         
 
 
@@ -325,7 +323,7 @@ class TableF(BertPreTrainedModel):
             cls_repr = get_token(h[batch], encodings[batch], cls_id)
             
             # align bert token embeddings to word embeddings            
-            word_h = align_bert_embeddings(h[batch], token_mask[batch], cls_repr).view(-1, h.shape[-1])
+            word_h = align_bert_embeddings(h[batch], token_mask[batch], cls_repr)
             # word_h = h[batch]
             # context_size = context_mask[batch].long().sum().item()
 

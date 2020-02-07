@@ -75,6 +75,11 @@ class SpERTTrainer(BaseTrainer):
         self._tokenizer = BertTokenizer.from_pretrained(args.tokenizer_path,
                                                         do_lower_case=args.lowercase,
                                                         cache_dir=args.cache_path)
+
+        # path to NER evalution output of BIO tagging scheme.
+
+        self._bio_file_path = args.bio_file_path
+
         # path to export relation extraction examples to
         self._examples_path = os.path.join(self._log_path, 'examples_%s_%s_epoch_%s.html')
 
@@ -97,7 +102,7 @@ class SpERTTrainer(BaseTrainer):
         self._init_eval_logging(valid_label)
 
         # read datasets
-        input_reader = input_reader_cls(types_path, self._tokenizer, self._logger)
+        input_reader = input_reader_cls(types_path, self._bio_file_path, self._tokenizer, self._logger)
         input_reader.read({train_label: train_path, valid_label: valid_path})
         self._log_datasets(input_reader)
 
@@ -187,7 +192,7 @@ class SpERTTrainer(BaseTrainer):
         self._init_eval_logging(dataset_label)
 
         # read datasets
-        input_reader = input_reader_cls(types_path, self._tokenizer, self._logger)
+        input_reader = input_reader_cls(types_path, self._bio_file_path, self._tokenizer, self._logger)
         input_reader.read({dataset_label: dataset_path})
         self._log_datasets(input_reader)
 
@@ -256,7 +261,7 @@ class SpERTTrainer(BaseTrainer):
             entity_logits, rel_logits = model(batch.encodings, batch.ctx_masks, batch.token_masks, start_labels, allow_rel, batch.entity_labels)
             entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.token_masks)
             # entity_labels = batch.entity_labels
-            # print("rel logits:", rel_logits)
+            # print("entity logits:", entity_logits)
             rel_labels = [rel_label.to(self._device) for rel_label in rel_labels]
             # print("rel labels:", rel_labels)
             entity_logits = util.beam_repeat(entity_logits, self.args.beam_size)

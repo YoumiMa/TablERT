@@ -48,6 +48,7 @@ class Evaluator:
 
         self._convert_gt(self._dataset.documents)
 
+
     def eval_batch(self, batch_entity_clf: List[torch.tensor], 
                     batch_rel_clf: List[torch.tensor],
                    batch: EvalTensorBatch,
@@ -68,6 +69,8 @@ class Evaluator:
             # print(batch.entity_labels)
             # print("entity_preds:", entity_preds)
 
+            self.update_bio_file(entity_preds)
+
             # print("entity_scores:", entity_scores)            
             ### training (word level):
             pred_entities = self._convert_pred_entities_start(entity_preds.squeeze(0), entity_scores.squeeze(0), 
@@ -79,7 +82,7 @@ class Evaluator:
             # print("pred_entities:", pred_entities)           
             
             self._pred_entities.append(pred_entities)
-            # # print("preds:", pred_entities)
+            # print("preds:", pred_entities)
 
             beam_rel = BeamSearch(rel_clf.shape[2])
             context_size = rel_clf.shape[1]
@@ -100,18 +103,33 @@ class Evaluator:
             self._pred_relations.append(pred_relations)    
 
 
-    def compute_scores(self):
-        print("Evaluation")
+    def update_bio_file(self, preds: torch.tensor):
+        
+        pred_tags = []
+        
+        for i in range(preds.shape[-1]):
+            tag = self._input_reader._idx2entity_label[preds[i].item()].short_name
+            if tag.startswith('U'):
+                tag = 'B' + tag[1:]
+            elif tag.startswith('L'):
+                tag = 'I' + tag[1:]
+            pred_tags.append(tag)
 
+        self._input_reader._bio_file['preds'].append(pred_tags)
+        return 
+
+    def compute_scores(self):
+
+        print("Evaluation")
         print("")
         print("--- Entities (NER) ---")
         print("")
-        # self._gt_entities = self._merge(self._gt_entities)
-        # self._pred_entities = self._merge(self._pred_entities)
         # print("gt:", self._gt_entities)
         # print("pred:", self._pred_entities)
         gt, pred = self._convert_by_setting(self._gt_entities, self._pred_entities, include_entity_types=True)
         ner_eval = self._score(gt, pred, print_results=True)
+        self._write_bio_file()
+
 
         print("")
         print("--- Relations ---")
@@ -158,9 +176,6 @@ class Evaluator:
 
         label, epoch = self._dataset_label, self._epoch
 
-        with open("text", 'w') as f:
-            text = [r['text'] for r in rel_examples]
-            f.writelines(text)
         # entities
         self._store_examples(entity_examples[:self._example_count],
                              file_path=self._examples_path % ('entities', label, epoch),
@@ -328,22 +343,24 @@ class Evaluator:
         return converted_preds
 
 
-    def _merge(self, entities):
-        for i in range(len(entities)):
-            to_add = []
-            j = 0
-            for j in range(len(entities[i])-1):
-                # print(entities[i][j][2].short_name, entities[i][j+1][2], entities[i][j][2].identifiers == entities[i][j+1][2].identifiers)
-                if entities[i][j][1] == entities[i][j+1][0] and entities[i][j][2] == entities[i][j+1][2]:
-                    to_add.append((entities[i][j][0], entities[i][j+1][1], entities[i][j][2]))
-                    j += 1
-                else:
-                    to_add.append(entities[i][j])
-            if j < len(entities[i]) - 1:
-                to_add.append(entities[i][j])
-            entities[i] = to_add
+    def _write_bio_file(self):
 
-        return entities
+        file_path = self._input_reader._bio_file['path']
+        tokens = self._input_reader._bio_file['tokens']
+        tags = self._input_reader._bio_file['tags']
+        preds = self._input_reader._bio_file['preds']
+
+        contents = []
+        for t in range(len(tokens)):
+            contents.append([list(i) for i in zip(tokens[t], tags[t], preds[t])])
+
+        with open(file_path, 'w+') as f:
+            for sentence in contents:
+                print(sentence)
+                f.writelines([' '.join(s)+'\n' for s in sentence])
+                f.write('\n')
+
+        return
 
     def _convert_pred_entities_(self, pred_types: torch.tensor, pred_scores: torch.tensor, 
         token_mask: torch.tensor, start_labels: List[int]):
@@ -576,7 +593,7 @@ class Evaluator:
         fp = sorted(fp, key=lambda p: p[-1], reverse=True)
 
         text = self._prettify(self._text_encoder.decode(encoding))
-        print("ttttpppp:", tp)
+        # print("ttttpppp:", tp)
         return dict(text=text, tp=tp, fn=fn, fp=fp, precision=precision, recall=recall, f1=f1, length=len(doc.tokens))
 
     def _entity_to_html(self, entity: Tuple, encoding: List[int]):

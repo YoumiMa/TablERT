@@ -425,7 +425,6 @@ class Dataset:
 
         self._documents = OrderedDict()
         self._entities = OrderedDict()
-        self._entities = OrderedDict()
         self._relations = OrderedDict()
 
         # current ids
