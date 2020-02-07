@@ -356,7 +356,6 @@ class Evaluator:
 
         with open(file_path, 'w+') as f:
             for sentence in contents:
-                print(sentence)
                 f.writelines([' '.join(s)+'\n' for s in sentence])
                 f.write('\n')
 
