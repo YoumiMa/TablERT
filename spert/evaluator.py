@@ -112,9 +112,12 @@ class Evaluator:
             if tag.startswith('U'):
                 tag = 'B' + tag[1:]
             elif tag.startswith('L'):
-                tag = 'I' + tag[1:]
+                if pred_tags[-1][1:] == tag[1:]:
+                    tag = 'I' + tag[1:]
+                else:
+                    tag = 'B' + tag[1:]
             pred_tags.append(tag)
-
+  
         self._input_reader._bio_file['preds'].append(pred_tags)
         return 
 
@@ -280,13 +283,15 @@ class Evaluator:
 
                 end = curr_token[0].item() + 1
                 converted_pred = (start, end, entity_type, score)
-                # print(i, "appended:", converted_pred)
+                    # print(i, "appended:", converted_pred)
                 converted_preds.append(converted_pred)                
-                start = curr_token[0].item() + 1
-               
+                start = curr_token[0].item() + 1              
 
             curr_type = math.ceil(type_idx/4)
-            entity_type = self._input_reader.get_entity_type(curr_type)
+            
+            if type_idx in start_labels:
+                entity_type = self._input_reader.get_entity_type(curr_type)  
+
 
             if type_idx == 0:
                 start = curr_token[-1].item() + 2
