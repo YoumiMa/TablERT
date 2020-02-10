@@ -35,7 +35,7 @@ class BaseInputReader(ABC):
         self._relation_types = OrderedDict()
         self._idx2relation_type = OrderedDict()
 
-        self._start_entity_label = []
+        self._start_entity_label = [0]
         self._end_entity_label = []
         self._right_rel_label = []
         # entities

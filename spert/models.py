@@ -353,10 +353,7 @@ class TableF(BertPreTrainedModel):
 
                 entity_masks[i, i] = 1                
                 # update info of previous entity.
-                if curr_label == 0:
-                    prev_i = i
-                    prev_label = curr_label
-                elif curr_label in start_labels and curr_label != prev_label:
+                if curr_label in start_labels:
                     prev_i = i
                     prev_label = curr_label
                 else:
@@ -371,18 +368,18 @@ class TableF(BertPreTrainedModel):
 
             # Relation classification.
 
-            preds = torch.argmax(torch.stack(entity_logits_batch, dim=1), dim=2)
-            label_embeddings = self.entity_label_embedding(preds)
+            # preds = torch.argmax(torch.stack(entity_logits_batch, dim=1), dim=2)
+            # label_embeddings = self.entity_label_embedding(preds)
 
-            for i in range(1, context_size-1):
-                for j in range(i+1, context_size-1):
-                    curr_rel_logits = self._forward_relation(h[batch], token_mask[batch],
-                                        i, j, label_embeddings[:,i-1], label_embeddings[:,j-1],
-                                        entity_masks, True)
-                    # print("i,j,logits", i, j, curr_rel_logits)
-                    rel_logits_batch.append(curr_rel_logits)
-            # print("length:", len(rel_logits_batch))
-            all_rel_logits.append(torch.stack(rel_logits_batch, dim=1))
+            # for i in range(1, context_size-1):
+            #     for j in range(i+1, context_size-1):
+            #         curr_rel_logits = self._forward_relation(h[batch], token_mask[batch],
+            #                             i, j, label_embeddings[:,i-1], label_embeddings[:,j-1],
+            #                             entity_masks, True)
+            #         # print("i,j,logits", i, j, curr_rel_logits)
+            #         rel_logits_batch.append(curr_rel_logits)
+            # # print("length:", len(rel_logits_batch))
+            # all_rel_logits.append(torch.stack(rel_logits_batch, dim=1))
 
 
         # apply softmax
@@ -390,7 +387,7 @@ class TableF(BertPreTrainedModel):
             # print(all_entity_logits[batch])
             all_entity_logits[batch] = torch.softmax(all_entity_logits[batch], dim=2)
             # print("after softmax:", all_entity_logits[batch])
-            all_rel_logits[batch] = torch.softmax(all_rel_logits[batch], dim=2)
+            # all_rel_logits[batch] = torch.softmax(all_rel_logits[batch], dim=2)
 
         return all_entity_logits, all_rel_logits
 

@@ -22,13 +22,14 @@ SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 
 class Evaluator:
     def __init__(self, dataset: Dataset, input_reader: JsonInputReader, text_encoder: BertTokenizer,
-                 rel_filter_threshold: float, example_count: int, example_path: str,
-                 epoch: int, dataset_label: str):
+                 rel_filter_threshold: float, example_count: int, example_path: str, 
+                 epoch: int, dataset_label: str, max_epoch: int = 0):
         self._text_encoder = text_encoder
         self._input_reader = input_reader
         self._dataset = dataset
         self._rel_filter_threshold = rel_filter_threshold
 
+        self._max_epoch = max_epoch
         self._epoch = epoch
         self._dataset_label = dataset_label
 
@@ -58,7 +59,7 @@ class Evaluator:
         for i in range(batch_size):
             # get model predictions for sample
             entity_clf = batch_entity_clf[i]
-            rel_clf = batch_rel_clf[i]
+            # rel_clf = batch_rel_clf[i]
             beam_entity = BeamSearch(entity_clf.shape[2])
             context_size = entity_clf.shape[1]
             for j in range(context_size):
@@ -69,7 +70,8 @@ class Evaluator:
             # print(batch.entity_labels)
             # print("entity_preds:", entity_preds)
 
-            self.update_bio_file(entity_preds)
+            if self._epoch == self._max_epoch:
+                self.update_bio_file(entity_preds)
 
             # print("entity_scores:", entity_scores)            
             ### training (word level):
@@ -84,23 +86,23 @@ class Evaluator:
             self._pred_entities.append(pred_entities)
             # print("preds:", pred_entities)
 
-            beam_rel = BeamSearch(rel_clf.shape[2])
-            context_size = rel_clf.shape[1]
-            # print("rel clf:", rel_clf.shape)
-            # exit(-1)
-            for j in range(context_size):
-                beam_rel.advance(rel_clf.squeeze(0)[j])
+            # beam_rel = BeamSearch(rel_clf.shape[2])
+            # context_size = rel_clf.shape[1]
+            # # print("rel clf:", rel_clf.shape)
+            # # exit(-1)
+            # for j in range(context_size):
+            #     beam_rel.advance(rel_clf.squeeze(0)[j])
 
-            rel_scores, rel_preds = beam_rel.get_best_path
+            # rel_scores, rel_preds = beam_rel.get_best_path
 
-            # print("preds", rel_preds)
-            rel_preds_split = rel_preds.split([i for i in range(entity_preds.shape[-1]-1, 0, -1)],dim=0)
-            # print("split:",rel_preds_split)
-            pred_relations = self._convert_pred_relations(rel_preds_split, rel_scores, 
-                                                            pred_entities, batch.token_masks[i])
-            # print("preds converted:", pred_relations)
-            # print("="*50)
-            self._pred_relations.append(pred_relations)    
+            # # print("preds", rel_preds)
+            # rel_preds_split = rel_preds.split([i for i in range(entity_preds.shape[-1]-1, 0, -1)],dim=0)
+            # # print("split:",rel_preds_split)
+            # pred_relations = self._convert_pred_relations(rel_preds_split, rel_scores, 
+            #                                                 pred_entities, batch.token_masks[i])
+            # # print("preds converted:", pred_relations)
+            # # print("="*50)
+            # self._pred_relations.append(pred_relations)    
 
 
     def update_bio_file(self, preds: torch.tensor):
@@ -112,10 +114,10 @@ class Evaluator:
             if tag.startswith('U'):
                 tag = 'B' + tag[1:]
             elif tag.startswith('L'):
-                if pred_tags[-1][1:] == tag[1:]:
-                    tag = 'I' + tag[1:]
-                else:
+                if pred_tags == [] or pred_tags[-1][1:] != tag[1:]:
                     tag = 'B' + tag[1:]
+                else:
+                    tag = 'I' + tag[1:]
             pred_tags.append(tag)
   
         self._input_reader._bio_file['preds'].append(pred_tags)
@@ -131,7 +133,9 @@ class Evaluator:
         # print("pred:", self._pred_entities)
         gt, pred = self._convert_by_setting(self._gt_entities, self._pred_entities, include_entity_types=True)
         ner_eval = self._score(gt, pred, print_results=True)
-        self._write_bio_file()
+        
+        if self._epoch == self._max_epoch:
+            self._write_bio_file()
 
 
         print("")
@@ -288,9 +292,7 @@ class Evaluator:
                 start = curr_token[0].item() + 1              
 
             curr_type = math.ceil(type_idx/4)
-            
-            if type_idx in start_labels:
-                entity_type = self._input_reader.get_entity_type(curr_type)  
+            entity_type = self._input_reader.get_entity_type(curr_type)  
 
 
             if type_idx == 0:

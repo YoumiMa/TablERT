@@ -265,7 +265,7 @@ class SpERTTrainer(BaseTrainer):
             rel_labels = [rel_label.to(self._device) for rel_label in rel_labels]
             # print("rel labels:", rel_labels)
             entity_logits = util.beam_repeat(entity_logits, self.args.beam_size)
-            rel_logits = util.beam_repeat(rel_logits, self.args.beam_size)
+            # rel_logits = util.beam_repeat(rel_logits, self.args.beam_size)
             # exit(0)
             loss = compute_loss.compute(entity_logits, entity_labels, rel_logits, rel_labels)                
             # logging
@@ -288,7 +288,7 @@ class SpERTTrainer(BaseTrainer):
         # create evaluator
         evaluator = Evaluator(dataset, input_reader, self._tokenizer,
                               self.args.rel_filter_threshold, self.args.example_count,
-                              self._examples_path, epoch, dataset.label)
+                              self._examples_path, epoch, dataset.label, max_epoch=self.args.epochs)
 
         # create batch sampler
         sampler = self._sampler.create_eval_sampler(dataset, self.args.eval_batch_size, 
@@ -309,7 +309,7 @@ class SpERTTrainer(BaseTrainer):
                     input_reader._start_entity_label, evaluate=True)
 
                 entity_clf = util.beam_repeat(entity_clf, self.args.beam_size)
-                rel_clf = util.beam_repeat(rel_clf, self.args.beam_size)
+                # rel_clf = util.beam_repeat(rel_clf, self.args.beam_size)
                 # evaluate batch
                 evaluator.eval_batch(entity_clf, rel_clf, batch, 
                                     input_reader._start_entity_label, input_reader._end_entity_label)
