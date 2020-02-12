@@ -32,7 +32,6 @@ class SpERTLoss(Loss):
         train_loss = 0.
 
         for b, batch_logits in enumerate(entity_logits):
-
             # batch_entities = entity_labels[b][1:1+batch_logits.shape[1]]
             batch_entities = entity_labels[b]
             # # print(batch_logits.shape)
@@ -66,7 +65,7 @@ class SpERTLoss(Loss):
             if ptr == []:
                 ptr.append(context_size)
             # for p in ptr:
-                # print("p:", p , - sum(local_scores[:p+1]) +  sum(greedy_path[:p+1]))
+            #     print("p:", p , - sum(local_scores[:p+1]) +  sum(greedy_path[:p+1]))
 
             ### Cumloss ###
             # for p in ptr:

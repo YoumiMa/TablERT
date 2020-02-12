@@ -30,9 +30,10 @@ SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 def align_label(entity: torch.tensor, rel: torch.tensor, token_mask: torch.tensor):
     """ Align tokenized label to word-piece label, masked by token_mask. """
 
+
     batch_size = entity.shape[0]
     context_size = token_mask.shape[1]
-    # print("rel:", rel)
+    # print("entity:", entity)
     batch_entity_labels = []
     batch_rel_labels = []
     for b in range(batch_size):
@@ -46,7 +47,7 @@ def align_label(entity: torch.tensor, rel: torch.tensor, token_mask: torch.tenso
         
         # rel_labels_lst = torch.zeros((len(word_labels_lst)-2, len(word_labels_lst)-2), dtype=torch.long)
         rel_labels_lst = [torch.zeros(j, dtype=torch.long) for j in range(len(word_labels_lst)-3, 0, -1)]
-        # print("rel:", rel_labels_lst)
+
         for i in range(1,len(word_labels_lst)-1):
             for j in range(i+1, len(word_labels_lst)-1):
                 curr_rel = rel[b, i, token_mask[b,j]]
@@ -56,7 +57,10 @@ def align_label(entity: torch.tensor, rel: torch.tensor, token_mask: torch.tenso
             # [token_mask[b,i]]
 
         # batch_rel_labels.append(rel_labels_lst)
-        batch_rel_labels.append(torch.cat(rel_labels_lst))
+        if rel_labels_lst != []:
+            batch_rel_labels.append(torch.cat(rel_labels_lst))
+        else:
+            batch_rel_labels.append(torch.tensor(rel_labels_lst, dtype=torch.long))
 
     # print("entity:", batch_entity_labels)
     # print("rel:", batch_rel_labels, torch.cat(rel_labels_lst).shape)

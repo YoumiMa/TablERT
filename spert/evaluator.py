@@ -283,7 +283,7 @@ class Evaluator:
             # print("entity type:", curr_type)
             score = pred_scores[i].item()
             
-            if (type_idx in start_labels or type_idx == 0) and curr_type != 0:
+            if type_idx in start_labels and curr_type != 0:
 
                 end = curr_token[0].item() + 1
                 converted_pred = (start, end, entity_type, score)

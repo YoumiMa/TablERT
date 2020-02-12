@@ -262,6 +262,8 @@ def _create_train_sample(doc, context_size, shuffle = False):
 
     # positive entities
     entity_spans, entity_types, entity_labels = [], [], []
+
+
     for e in doc.entities:
         # print(e.phrase, e.tokens)
         entity_spans.append(e.span)
@@ -269,9 +271,13 @@ def _create_train_sample(doc, context_size, shuffle = False):
         entity_labels.append(create_entity_mask(*e.span, context_size).to(torch.long))       
         for i, t in enumerate(e.tokens):
             entity_labels[-1][t.span_start:t.span_end] = e.entity_labels[i].index
-
-    entity_types = torch.tensor([e.index for e in entity_types], dtype=torch.long)
-    entity_labels = torch.stack(entity_labels).sum(axis=0)
+    
+    if not doc.entities: # no entities included
+        entity_types = torch.tensor([], dtype=torch.long)
+        entity_labels = torch.zeros(context_size, dtype=torch.long)
+    else:
+        entity_types = torch.tensor([e.index for e in entity_types], dtype=torch.long)
+        entity_labels = torch.stack(entity_labels).sum(axis=0)
 
     # positive relations
     rel_spans, rel_types= [], []
@@ -288,9 +294,12 @@ def _create_train_sample(doc, context_size, shuffle = False):
                 rel_labels[i][j] = rel.relation_label.index
 
 
-    rel_types = torch.tensor([r.index for r in rel_types], dtype=torch.long)
-    # rel_labels = torch.tensor(sum(rel_labels, []))
-    # rel_labels = util.padded_stack(rel_labels)
+    if not doc.relations: # no relations included:
+        rel_types = torch.tensor([], dtype=torch.long)
+    else:
+        rel_types = torch.tensor([r.index for r in rel_types], dtype=torch.long)
+        # rel_labels = torch.tensor(sum(rel_labels, []))
+        # rel_labels = util.padded_stack(rel_labels)
     # print(rel_labels, rel_labels.shape)
 
     # create tensors
@@ -335,8 +344,12 @@ def _create_eval_sample(doc, context_size):
         for i, t in enumerate(e.tokens):
             entity_labels[-1][t.span_start:t.span_end] = e.entity_labels[i].index
 
-    entity_types = torch.tensor([e.index for e in entity_types], dtype=torch.long)
-    entity_labels = torch.stack(entity_labels).sum(axis=0)
+    if not doc.entities: # no entities included
+        entity_types = torch.tensor([], dtype=torch.long)
+        entity_labels = torch.zeros(context_size, dtype=torch.long)
+    else:
+        entity_types = torch.tensor([e.index for e in entity_types], dtype=torch.long)
+        entity_labels = torch.stack(entity_labels).sum(axis=0)
 
     # positive relations
     rel_spans, rel_types= [], []
@@ -433,6 +446,7 @@ def _create_train_batch(samples):
 
     batch_rel_types = util.padded_stack(batch_rel_types)
     batch_entity_types = util.padded_stack(batch_entity_types)
+
 
     batch_rel_labels = util.padded_stack(batch_rel_labels)
     batch_entity_labels = util.padded_stack(batch_entity_labels)
