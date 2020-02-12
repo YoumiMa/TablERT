@@ -75,7 +75,7 @@ class Evaluator:
 
             # print("entity_scores:", entity_scores)            
             ### training (word level):
-            pred_entities = self._convert_pred_entities_start(entity_preds.squeeze(0), entity_scores.squeeze(0), 
+            pred_entities = self._convert_pred_entities_start(entity_preds, entity_scores, 
                 batch.token_masks[i], start_labels, end_labels)
 
             ### fine tuning (token level):
@@ -270,7 +270,6 @@ class Evaluator:
                                 start_labels: List[int], end_labels: List[int]):
         #### for word-level.
         converted_preds = []
-        # print(pred_types)
         
         encoding_length = token_mask.shape[0]
         curr_type = 0
