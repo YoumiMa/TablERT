@@ -26,7 +26,7 @@ class SpERTLoss(Loss):
 
         return score
 
-    def compute(self, entity_logits, entity_labels, rel_logits, rel_labels):
+    def compute(self, entity_logits, entity_labels, rel_logits, rel_labels, is_eval=False):
         # entity loss
 
         train_loss = 0.
@@ -75,7 +75,7 @@ class SpERTLoss(Loss):
             p = ptr[-1]
             train_loss += - sum(local_scores[:p+1]) +  beam_paths[min(p, context_size-1)]
             
-            # print("loss:", train_loss)
+            print("loss:", train_loss)
             # train_loss = self._entity_criterion(batch_logits.squeeze(0), entity_labels[b][1:-1])
             # train_loss =  (train_loss * entity_mask[b][1:-1]).sum() / entity_mask[b][1:-1].sum()
             # train_loss /= context_size
@@ -122,9 +122,10 @@ class SpERTLoss(Loss):
 
         # print("loss:", train_loss)
         # print("=" * 50)
-        train_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self._model.parameters(), self._max_grad_norm)
-        self._optimizer.step()
-        self._scheduler.step()
-        # self._model.zero_grad()
+        if not is_eval:
+            train_loss.backward()
+            torch.nn.utils.clip_grad_norm_(self._model.parameters(), self._max_grad_norm)
+            self._optimizer.step()
+            self._scheduler.step()
+            # self._model.zero_grad()
         return train_loss.item()

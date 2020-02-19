@@ -148,7 +148,9 @@ class TableF(BertPreTrainedModel):
 
         # dropout.
         if not is_eval:
+            # print(entity_repr)
             entity_repr = self.dropout(entity_repr)
+            # print("dropeed:", entity_repr)
 
         entity_logits = self.entity_classifier(entity_repr)
 
@@ -207,7 +209,7 @@ class TableF(BertPreTrainedModel):
 
     def _forward_train(self, encodings: torch.tensor, context_mask: torch.tensor, 
                         token_mask: torch.tensor, start_labels: List[int],
-                        allow_rel: bool, gt_entity: torch.tensor):  
+                        allow_rel: bool):  
         # get contextualized token embeddings from last transformer layer
         context_mask = context_mask.float()
         h = self.bert(input_ids=encodings, attention_mask=context_mask)[0]
@@ -267,7 +269,9 @@ class TableF(BertPreTrainedModel):
 
                 entity_masks[i, i] = 1                
                 # update info of previous entity.
-                if curr_label in start_labels:
+                if curr_label == 0 and prev_label == 0:
+                    pass
+                elif curr_label in start_labels:
                     prev_i = i
                     prev_label = curr_label
                 else:
@@ -292,7 +296,6 @@ class TableF(BertPreTrainedModel):
                 # print("length:", len(rel_logits_batch))
                 # all_rel_logits.append(torch.stack(rel_logits_batch, dim=1))
                         
-
 
         return all_entity_logits, all_rel_logits
 
@@ -337,7 +340,7 @@ class TableF(BertPreTrainedModel):
                 # mask from previous entity token until current position.
                 # prev_mask = self._get_prev_mask_(prev_i, i, context_mask[batch])
                 prev_mask = self._get_prev_mask(prev_i, i, context_size)
-
+                # print(i, "prev mask:", prev_mask)
                 # prvious label embedding.
                 prev_embedding = self.entity_label_embedding(torch.tensor(prev_label).cuda())
                 
@@ -350,10 +353,9 @@ class TableF(BertPreTrainedModel):
 
                 entity_masks[i, i] = 1                
                 # update info of previous entity.(VER1: comment below)
-                # if curr_label == 0:
-                #     prev_i = i
-                #     prev_label = curr_label
-                if curr_label in start_labels:
+                if curr_label == 0 and prev_label == 0:
+                    pass
+                elif curr_label in start_labels:
                     prev_i = i
                     prev_label = curr_label
                 else:
