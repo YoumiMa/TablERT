@@ -70,7 +70,7 @@ class Evaluator:
             # print(batch.entity_labels)
             # print("entity_preds:", entity_preds)
 
-            if self._epoch == self._max_epoch:
+            if self._epoch + 1 == self._max_epoch:
                 self.update_bio_file(entity_preds)
 
             # print("entity_scores:", entity_scores)            
@@ -134,7 +134,7 @@ class Evaluator:
         gt, pred = self._convert_by_setting(self._gt_entities, self._pred_entities, include_entity_types=True)
         ner_eval = self._score(gt, pred, print_results=True)
         
-        if self._epoch == self._max_epoch:
+        if self._epoch + 1 == self._max_epoch:
             self._write_bio_file()
 
 

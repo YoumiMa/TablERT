@@ -75,7 +75,7 @@ class SpERTLoss(Loss):
             p = ptr[-1]
             train_loss += - sum(local_scores[:p+1]) +  beam_paths[min(p, context_size-1)]
             
-            print("loss:", train_loss)
+            # print("loss:", train_loss)
             # train_loss = self._entity_criterion(batch_logits.squeeze(0), entity_labels[b][1:-1])
             # train_loss =  (train_loss * entity_mask[b][1:-1]).sum() / entity_mask[b][1:-1].sum()
             # train_loss /= context_size

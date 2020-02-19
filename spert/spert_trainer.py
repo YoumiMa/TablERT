@@ -290,10 +290,10 @@ class SpERTTrainer(BaseTrainer):
             model = model.module
 
         # create evaluator
-        if dataset.label == 'train':
+        if dataset.label == 'valid':
             evaluator = Evaluator(dataset, input_reader, self._tokenizer,
                                   self.args.rel_filter_threshold, self.args.example_count,
-                                  self._examples_path, epoch, dataset.label, max_epoch=self.args.max_epoch)
+                                  self._examples_path, epoch, dataset.label, max_epoch=self.args.epochs)
         else:
             evaluator = Evaluator(dataset, input_reader, self._tokenizer,
                                   self.args.rel_filter_threshold, self.args.example_count,
