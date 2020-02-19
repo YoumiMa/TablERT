@@ -269,9 +269,7 @@ class TableF(BertPreTrainedModel):
 
                 entity_masks[i, i] = 1                
                 # update info of previous entity.
-                if curr_label == 0 and prev_label == 0:
-                    pass
-                elif curr_label in start_labels:
+                if curr_label in start_labels:
                     prev_i = i
                     prev_label = curr_label
                 else:
@@ -353,9 +351,7 @@ class TableF(BertPreTrainedModel):
 
                 entity_masks[i, i] = 1                
                 # update info of previous entity.(VER1: comment below)
-                if curr_label == 0 and prev_label == 0:
-                    pass
-                elif curr_label in start_labels:
+                if curr_label in start_labels:
                     prev_i = i
                     prev_label = curr_label
                 else:

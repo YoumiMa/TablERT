@@ -169,9 +169,9 @@ class SpERTTrainer(BaseTrainer):
             # eval validation sets
             if not args.final_eval or (epoch == args.epochs - 1):
                 ner_acc, rel_acc, rel_ner_acc = self._eval(model, compute_loss, validation_dataset, input_reader, epoch, updates_epoch)
-                # extra = dict(epoch=epoch, updates_epoch=updates_epoch, epoch_iteration=0)
-                # self._save_best(model=model, optimizer=optimizer if self.args.save_optimizer else None, 
-                    # accuracy=ner_acc[2], iteration=epoch * updates_epoch, label='ner_micro_f1', extra=extra)
+                extra = dict(epoch=epoch, updates_epoch=updates_epoch, epoch_iteration=0)
+                self._save_best(model=model, optimizer=optimizer if self.args.save_optimizer else None, 
+                    accuracy=ner_acc[2], iteration=epoch * updates_epoch, label='ner_micro_f1', extra=extra)
 
         # save final model
         extra = dict(epoch=args.epochs, updates_epoch=updates_epoch, epoch_iteration=0)
@@ -218,8 +218,14 @@ class SpERTTrainer(BaseTrainer):
 
         model.to(self._device)
 
+
+        rel_criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
+        entity_criterion = torch.nn.CrossEntropyLoss(reduction='none')
+        compute_loss = SpERTLoss(rel_criterion, entity_criterion, model)
+
+ 
         # evaluate
-        self._eval(model, input_reader.get_dataset(dataset_label), input_reader)
+        self._eval(model, compute_loss, input_reader.get_dataset(dataset_label), input_reader)
         self._logger.info("Logged in: %s" % self._log_path)
 
         self._sampler.join()
@@ -375,7 +381,6 @@ class SpERTTrainer(BaseTrainer):
                   rel_ner_prec_macro: float, rel_ner_rec_macro: float, rel_ner_f1_macro: float,
                   loss: float, epoch: int, iteration: int, global_iteration: int, label: str):
 
-        avg_loss = loss / self.args.train_batch_size
 
         # log to tensorboard
         self._log_tensorboard(label, 'eval/ner_prec_micro', ner_prec_micro, global_iteration)
@@ -400,7 +405,6 @@ class SpERTTrainer(BaseTrainer):
         self._log_tensorboard(label, 'eval/rel_ner_f1_macro', rel_ner_f1_macro, global_iteration)
 
         self._log_tensorboard(label, 'loss', loss, global_iteration)
-        self._log_tensorboard(label, 'loss_avg', avg_loss, global_iteration)
 
 
         # log to csv
@@ -412,7 +416,7 @@ class SpERTTrainer(BaseTrainer):
 
                       rel_ner_prec_micro, rel_ner_rec_micro, rel_ner_f1_micro,
                       rel_ner_prec_macro, rel_ner_rec_macro, rel_ner_f1_macro,
-                      loss, avg_loss, epoch, iteration, global_iteration)
+                      loss, epoch, iteration, global_iteration)
 
 
     def _log_datasets(self, input_reader):
@@ -449,4 +453,4 @@ class SpERTTrainer(BaseTrainer):
                                                  'rel_prec_macro', 'rel_rec_macro', 'rel_f1_macro',
                                                  'rel_ner_prec_micro', 'rel_ner_rec_micro', 'rel_ner_f1_micro',
                                                  'rel_ner_prec_macro', 'rel_ner_rec_macro', 'rel_ner_f1_macro',
-                                                 'loss', 'avg_loss', 'epoch', 'iteration', 'global_iteration']})
+                                                 'loss', 'epoch', 'iteration', 'global_iteration']})
