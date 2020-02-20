@@ -60,14 +60,20 @@ class Evaluator:
             # get model predictions for sample
             entity_clf = batch_entity_clf[i]
             # rel_clf = batch_rel_clf[i]
-            beam_entity = BeamSearch(entity_clf.shape[2])
-            context_size = entity_clf.shape[1]
-            for j in range(context_size):
-                beam_entity.advance(entity_clf.squeeze(0)[j])
 
-            entity_scores, entity_preds = beam_entity.get_best_path 
-            # entity_scores, entity_preds = torch.max(entity_clf, dim=2)
+            ### beam search
+            # beam_entity = BeamSearch(entity_clf.shape[2])
+            # context_size = entity_clf.shape[1]
+            # for j in range(context_size):
+            #     beam_entity.advance(entity_clf.squeeze(0)[j])
+
+            # entity_scores, entity_preds = beam_entity.get_best_path 
+
+            ### for bert baseline
+            entity_scores, entity_preds = torch.max(entity_clf, dim=1)
             # print(batch.entity_labels)
+            entity_scores = entity_scores[1:-1]
+            entity_preds = entity_preds[1:-1]
             # print("entity_preds:", entity_preds)
 
             if self._epoch + 1 == self._max_epoch:

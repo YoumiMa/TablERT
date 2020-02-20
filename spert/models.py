@@ -12,6 +12,7 @@ from spert import util
 from spert.embeddings import CharacterEmbeddings
 from spert.entities import Token
 from spert.loss import SpERTLoss, Loss
+from spert.attention import MultiHeadAttention
 
 from typing import List
 
@@ -70,7 +71,7 @@ def align_bert_embeddings(h: torch.tensor, token_mask: torch.tensor, cls_repr: t
 
     for i in range(context_size):
         if torch.any(token_mask[i]):
-            word_embeddings_lst.append(max_pooling(h, token_mask[i]))
+            word_embeddings_lst.append(pick_first(h, token_mask[i]))
 
     word_embeddings = torch.stack(word_embeddings_lst, dim=0)
     return word_embeddings
@@ -81,8 +82,8 @@ class TableF(BertPreTrainedModel):
 
     def __init__(self, config: BertConfig, tokenizer: BertTokenizer,
                  relation_labels: int, entity_labels: int,
-                 entity_label_embedding:int,  prop_drop: float, 
-                 freeze_transformer: bool, max_pairs: int = 100):
+                 entity_label_embedding: int,  prop_drop: float, 
+                 freeze_transformer: bool, device):
         super(TableF, self).__init__(config)
 
         # BERT model
@@ -94,11 +95,11 @@ class TableF(BertPreTrainedModel):
         self.entity_classifier = nn.Linear(config.hidden_size * 2 + entity_label_embedding , entity_labels)
         # sel.crf = torchcrf.CRF(entity_labels)
         self.dropout = nn.Dropout(prop_drop)
-        self.m = nn.Softmax()
+        self.attn = MultiHeadAttention(relation_labels, entity_labels, entity_labels, device)
 
         self._relation_labels = relation_labels
         self._entity_labels = entity_labels
-        self._max_pairs = max_pairs
+
 
         # weight initialization
         self.init_weights()
@@ -279,11 +280,16 @@ class TableF(BertPreTrainedModel):
 
                 entity_logits_batch.append(curr_entity_logits)
 
-            all_entity_logits.append(torch.stack(entity_logits_batch, dim=1))
+            curr_entity_logits = torch.stack(entity_logits_batch, dim=1)
+            all_entity_logits.append(curr_entity_logits)
             # print("entity mask:", entity_masks)
 
             # Relation classification.
             if allow_rel:
+
+                rel_logits = self.attn(curr_entity_logits, curr_entity_logits, curr_entity_logits)
+                print(rel_logits.shape)
+                exit(0)
 
                 preds = torch.argmax(torch.stack(entity_logits_batch, dim=1), dim=2)
                 label_embeddings = self.entity_label_embedding(preds)
@@ -401,10 +407,106 @@ class TableF(BertPreTrainedModel):
             return self._forward_eval(*args, **kwargs)
 
 
+
+class bert_ner(BertPreTrainedModel):
+    """ Span-based model to jointly extract entities and relations """
+
+    def __init__(self, config: BertConfig, tokenizer: BertTokenizer,
+                 relation_labels: int, entity_labels: int,
+                 entity_label_embedding: int,  prop_drop: float, 
+                 freeze_transformer: bool, device):
+        
+        super(bert_ner, self).__init__(config)
+
+        # BERT model
+        self.bert = BertModel(config)
+        self._tokenizer = tokenizer
+        # layers
+        self.entity_classifier = nn.Linear(config.hidden_size, entity_labels)
+        # sel.crf = torchcrf.CRF(entity_labels)
+        self.dropout = nn.Dropout(prop_drop)
+
+        self._relation_labels = relation_labels
+        self._entity_labels = entity_labels
+
+
+        # weight initialization
+        self.init_weights()
+
+        if freeze_transformer:
+            print("Freeze transformer weights")
+
+            # freeze all transformer weights
+            for param in self.bert.parameters():
+                param.requires_grad = False
+
+
+    def _forward_train(self, encodings: torch.tensor, context_mask: torch.tensor, 
+                        token_mask: torch.tensor, start_labels: List[int],
+                        allow_rel: bool): 
+
+        h = self.bert(input_ids=encodings, attention_mask=context_mask)[0]
+
+        batch_size = encodings.shape[0]
+
+        all_entity_logits = []
+
+        for batch in range(batch_size):
+
+            # get cls repr.
+            cls_id = self._tokenizer.convert_tokens_to_ids("[CLS]")
+            cls_repr = get_token(h[batch], encodings[batch], cls_id)
+            
+            # align bert token embeddings to word embeddings            
+            word_h = align_bert_embeddings(h[batch], token_mask[batch], cls_repr)
+            # print(word_h.shape)
+
+            word_h = self.dropout(word_h)
+
+            logits = self.entity_classifier(word_h)
+            
+            all_entity_logits.append(logits)
+
+        return all_entity_logits, []
+
+
+    def _forward_eval(self, encodings: torch.tensor, context_mask: torch.tensor, 
+                        token_mask: torch.tensor, start_labels: List[int]):
+
+        h = self.bert(input_ids=encodings, attention_mask=context_mask)[0]
+
+        batch_size = encodings.shape[0]
+
+        all_entity_logits = []
+
+        for batch in range(batch_size):
+
+            # get cls repr.
+            cls_id = self._tokenizer.convert_tokens_to_ids("[CLS]")
+            cls_repr = get_token(h[batch], encodings[batch], cls_id)
+            
+            # align bert token embeddings to word embeddings            
+            word_h = align_bert_embeddings(h[batch], token_mask[batch], cls_repr)
+            # print(word_h.shape)
+
+            logits = self.entity_classifier(word_h)
+
+            all_entity_logits.append(logits)
+
+        return all_entity_logits, []
+
+    def forward(self, *args, evaluate=False, **kwargs):
+        if not evaluate:
+            return self._forward_train(*args, **kwargs)
+        else:
+            return self._forward_eval(*args, **kwargs)
+
+
 # Model access
 
 _MODELS = {
     'table_filling': TableF,
+    'bert_ner': bert_ner,
 }
 
 

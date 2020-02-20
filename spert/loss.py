@@ -19,13 +19,6 @@ class SpERTLoss(Loss):
         self._max_grad_norm = max_grad_norm
 
 
-    def local_score(self, entity_logits):
-        m = torch.nn.Softmax(dim=-1)
-        score = m(entity_logits)
-        # print("local:", score)
-
-        return score
-
     def compute(self, entity_logits, entity_labels, rel_logits, rel_labels, is_eval=False):
         # entity loss
 
@@ -122,6 +115,34 @@ class SpERTLoss(Loss):
 
         # print("loss:", train_loss)
         # print("=" * 50)
+        if not is_eval:
+            train_loss.backward()
+            torch.nn.utils.clip_grad_norm_(self._model.parameters(), self._max_grad_norm)
+            self._optimizer.step()
+            self._scheduler.step()
+            # self._model.zero_grad()
+        return train_loss.item()
+
+
+class NERLoss(Loss):
+
+    def __init__(self, rel_criterion, entity_criterion, model, optimizer, scheduler, max_grad_norm):
+        self._rel_criterion = rel_criterion
+        self._entity_criterion = entity_criterion
+        self._model = model
+        self._optimizer = optimizer
+        self._scheduler = scheduler
+        self._max_grad_norm = max_grad_norm
+
+    def compute(self, entity_logits, entity_labels, rel_logits, rel_labels, is_eval=False):
+
+        train_loss = 0.
+
+        for b, batch_logits in enumerate(entity_logits):
+            batch_entities = entity_labels[b]
+            entity_loss = self._entity_criterion(batch_logits[1:-1], batch_entities)
+            train_loss += entity_loss.sum()/batch_logits.shape[1]
+
         if not is_eval:
             train_loss.backward()
             torch.nn.utils.clip_grad_norm_(self._model.parameters(), self._max_grad_norm)

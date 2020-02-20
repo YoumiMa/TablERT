@@ -13,7 +13,7 @@ from spert import models
 from spert.entities import Dataset
 from spert.evaluator import Evaluator
 from spert.input_reader import JsonInputReader, BaseInputReader
-from spert.loss import SpERTLoss, Loss
+from spert.loss import SpERTLoss, NERLoss, Loss
 from spert.beam import BeamSearch
 from tqdm import tqdm
 from spert.sampling import Sampler
@@ -130,10 +130,10 @@ class SpERTTrainer(BaseTrainer):
                                             # SpERT model parameters
                                             relation_labels=input_reader.relation_label_count,
                                             entity_labels=input_reader.entity_label_count,
-                                            max_pairs=self.args.max_pairs,
                                             prop_drop=self.args.prop_drop,
                                             entity_label_embedding=self.args.entity_label_embedding,
-                                            freeze_transformer=self.args.freeze_transformer)
+                                            freeze_transformer=self.args.freeze_transformer,
+                                            device=self._device)
 
         # SpERT is currently optimized on a single GPU and not thoroughly tested in a multi GPU setup
         # If you still want to train SpERT on multiple GPUs, uncomment the following lines
@@ -153,7 +153,11 @@ class SpERTTrainer(BaseTrainer):
         # create loss function
         rel_criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
         entity_criterion = torch.nn.CrossEntropyLoss(reduction='none')
-        compute_loss = SpERTLoss(rel_criterion, entity_criterion, model, optimizer, scheduler, args.max_grad_norm)
+
+        if args.model_type == 'table_filling':
+            compute_loss = SpERTLoss(rel_criterion, entity_criterion, model, optimizer, scheduler, args.max_grad_norm)
+        elif args.model_type == 'bert_ner':
+            compute_loss = NERLoss(rel_criterion, entity_criterion, model, optimizer, scheduler, args.max_grad_norm)
 
         # eval validation set
         if args.init_eval:
@@ -211,10 +215,10 @@ class SpERTTrainer(BaseTrainer):
                                             # no node for 'none' class
                                             relation_labels=input_reader.relation_label_count,
                                             entity_labels=input_reader.entity_label_count,
-                                            max_pairs=self.args.max_pairs,
                                             prop_drop=self.args.prop_drop,
                                             entity_label_embedding=self.args.entity_label_embedding,
-                                            freeze_transformer=self.args.freeze_transformer)
+                                            freeze_transformer=self.args.freeze_transformer,
+                                            device=self._device)
 
         model.to(self._device)
 
@@ -265,10 +269,10 @@ class SpERTTrainer(BaseTrainer):
             entity_logits, rel_logits = model(batch.encodings, batch.ctx_masks, batch.token_masks, start_labels, allow_rel)
             entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.token_masks)
             # entity_labels = batch.entity_labels
-            # print("entity logits:", entity_logits)
             rel_labels = [rel_label.to(self._device) for rel_label in rel_labels]
             # print("rel labels:", rel_labels)
-            entity_logits = util.beam_repeat(entity_logits, self.args.beam_size)
+            if self.args.model_type == 'table_filling':
+                entity_logits = util.beam_repeat(entity_logits, self.args.beam_size)
             # rel_logits = util.beam_repeat(rel_logits, self.args.beam_size)
             # exit(0)
             loss = compute_loss.compute(entity_logits, entity_labels, rel_logits, rel_labels)                
@@ -318,7 +322,8 @@ class SpERTTrainer(BaseTrainer):
                     input_reader._start_entity_label, evaluate=True) 
                 
                 entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.token_masks)
-                entity_clf = util.beam_repeat(entity_clf, self.args.beam_size)
+                if self.args.model_type == 'table_filling':
+                    entity_clf = util.beam_repeat(entity_clf, self.args.beam_size)
                 # rel_clf = util.beam_repeat(rel_clf, self.args.beam_size)
                 # evaluate batch
 
