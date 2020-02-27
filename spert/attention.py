@@ -14,7 +14,7 @@ class MultiHeadAttention(nn.Module):
         self.hid_dim = hid_dim
         self.n_heads = n_heads
 
-        assert hid_dim % n_heads == 0
+        # assert hid_dim % n_heads == 0
 
         self.w_q = nn.Linear(input_dim, hid_dim)
         self.w_k = nn.Linear(input_dim, hid_dim)

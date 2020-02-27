@@ -10,7 +10,7 @@ class Loss(ABC):
 
 
 class SpERTLoss(Loss):
-    def __init__(self, rel_criterion, entity_criterion, model, optimizer, scheduler, max_grad_norm):
+    def __init__(self, rel_criterion, entity_criterion, model, optimizer=None, scheduler=None, max_grad_norm=None):
         self._rel_criterion = rel_criterion
         self._entity_criterion = entity_criterion
         self._model = model
@@ -126,7 +126,7 @@ class SpERTLoss(Loss):
 
 class NERLoss(Loss):
 
-    def __init__(self, rel_criterion, entity_criterion, model, optimizer, scheduler, max_grad_norm):
+    def __init__(self, rel_criterion, entity_criterion, model, optimizer=None, scheduler=None, max_grad_norm=None):
         self._rel_criterion = rel_criterion
         self._entity_criterion = entity_criterion
         self._model = model
@@ -134,14 +134,15 @@ class NERLoss(Loss):
         self._scheduler = scheduler
         self._max_grad_norm = max_grad_norm
 
-    def compute(self, entity_logits, entity_labels, rel_logits, rel_labels, is_eval=False):
+    def compute(self, entity_logits, entity_labels, token_masks, is_eval=False):
 
-        train_loss = 0.
+        entity_logits = entity_logits.view(-1, entity_logits.shape[-1])
+        token_masks = token_masks.view(-1)
+        entity_labels = entity_labels.view(-1)
+        entity_loss = self._entity_criterion(entity_logits, entity_labels)
+        entity_loss = entity_loss * token_masks
 
-        for b, batch_logits in enumerate(entity_logits):
-            batch_entities = entity_labels[b]
-            entity_loss = self._entity_criterion(batch_logits[1:-1], batch_entities)
-            train_loss += entity_loss.sum()/batch_logits.shape[1]
+        train_loss = entity_loss.sum()
 
         if not is_eval:
             train_loss.backward()

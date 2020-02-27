@@ -287,9 +287,7 @@ class TableF(BertPreTrainedModel):
             # Relation classification.
             if allow_rel:
 
-                rel_logits = self.attn(curr_entity_logits, curr_entity_logits, curr_entity_logits)
-                print(rel_logits.shape)
-                exit(0)
+                # rel_logits = self.attn(curr_entity_logits, curr_entity_logits, curr_entity_logits)
 
                 preds = torch.argmax(torch.stack(entity_logits_batch, dim=1), dim=2)
                 label_embeddings = self.entity_label_embedding(preds)
@@ -441,57 +439,52 @@ class bert_ner(BertPreTrainedModel):
                 param.requires_grad = False
 
 
-    def _forward_train(self, encodings: torch.tensor, context_mask: torch.tensor, 
-                        token_mask: torch.tensor, start_labels: List[int],
-                        allow_rel: bool): 
+    def _forward_train(self, encodings: torch.tensor, context_mask: torch.tensor): 
 
         h = self.bert(input_ids=encodings, attention_mask=context_mask)[0]
 
-        batch_size = encodings.shape[0]
+        h = self.dropout(h)
 
-        all_entity_logits = []
+        all_entity_logits = self.entity_classifier(h)
 
-        for batch in range(batch_size):
+        # for batch in range(batch_size):
 
-            # get cls repr.
-            cls_id = self._tokenizer.convert_tokens_to_ids("[CLS]")
-            cls_repr = get_token(h[batch], encodings[batch], cls_id)
+        #     # get cls repr.
+        #     cls_id = self._tokenizer.convert_tokens_to_ids("[CLS]")
+        #     cls_repr = get_token(h[batch], encodings[batch], cls_id)
             
-            # align bert token embeddings to word embeddings            
-            word_h = align_bert_embeddings(h[batch], token_mask[batch], cls_repr)
-            # print(word_h.shape)
+        #     # align bert token embeddings to word embeddings            
+        #     word_h = align_bert_embeddings(h[batch], token_mask[batch], cls_repr)
+        #     # print(word_h.shape)
 
-            word_h = self.dropout(word_h)
+        #     word_h = self.dropout(word_h)
 
-            logits = self.entity_classifier(word_h)
+        #     logits = self.entity_classifier(word_h)
             
-            all_entity_logits.append(logits)
+        #     all_entity_logits.append(logits)
 
         return all_entity_logits, []
 
 
-    def _forward_eval(self, encodings: torch.tensor, context_mask: torch.tensor, 
-                        token_mask: torch.tensor, start_labels: List[int]):
+    def _forward_eval(self, encodings: torch.tensor, context_mask: torch.tensor):
 
         h = self.bert(input_ids=encodings, attention_mask=context_mask)[0]
 
-        batch_size = encodings.shape[0]
+        all_entity_logits = self.entity_classifier(h)
 
-        all_entity_logits = []
+        # for batch in range(batch_size):
 
-        for batch in range(batch_size):
-
-            # get cls repr.
-            cls_id = self._tokenizer.convert_tokens_to_ids("[CLS]")
-            cls_repr = get_token(h[batch], encodings[batch], cls_id)
+        #     # get cls repr.
+        #     cls_id = self._tokenizer.convert_tokens_to_ids("[CLS]")
+        #     cls_repr = get_token(h[batch], encodings[batch], cls_id)
             
-            # align bert token embeddings to word embeddings            
-            word_h = align_bert_embeddings(h[batch], token_mask[batch], cls_repr)
-            # print(word_h.shape)
+        #     # align bert token embeddings to word embeddings            
+        #     word_h = align_bert_embeddings(h[batch], token_mask[batch], cls_repr)
+        #     # print(word_h.shape)
 
-            logits = self.entity_classifier(word_h)
+        #     logits = self.entity_classifier(word_h)
 
-            all_entity_logits.append(logits)
+        #     all_entity_logits.append(logits)
 
         return all_entity_logits, []
 

@@ -358,6 +358,7 @@ class Document:
         # byte-pair document encoding including special tokens ([CLS] and [SEP])
         self._encoding = encoding
 
+
     @property
     def doc_id(self):
         return self._doc_id
