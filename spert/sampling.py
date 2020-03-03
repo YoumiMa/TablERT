@@ -275,13 +275,12 @@ def _create_train_sample(doc, context_size, shuffle = False):
 
 
     for e in doc.entities:
-        # print(e.phrase, e.tokens)
         entity_spans.append(e.span)
         entity_types.append(e.entity_type)
         entity_labels.append(create_entity_mask(*e.span, context_size).to(torch.long))       
         for i, t in enumerate(e.tokens):
             entity_labels[-1][t.span_start:t.span_end] = e.entity_labels[i].index
-    
+
     if not doc.entities: # no entities included
         entity_types = torch.tensor([], dtype=torch.long)
         entity_labels = torch.zeros(context_size, dtype=torch.long)
@@ -292,6 +291,7 @@ def _create_train_sample(doc, context_size, shuffle = False):
     # positive relations
     rel_spans, rel_types= [], []
     rel_labels = torch.zeros((context_size, context_size), dtype=torch.long)
+
     for rel in doc.relations:
         s1, s2 = rel.head_entity.span, rel.tail_entity.span
         rel_spans.append((s1, s2))
@@ -338,7 +338,7 @@ def _create_train_sample(doc, context_size, shuffle = False):
     token_masks[i+2,t.span_end] = 1  
     
     return TrainTensorSample(encoding=encoding, ctx_mask=ctx_mask, 
-                            entity_types=entity_types, entity_labels=entity_labels,
+                            entity_types=entity_types, entity_labels=entity_labels, 
                             rel_types=rel_types, rel_labels=rel_labels, 
                             token_masks=token_masks, start_token_masks=start_token_masks)
 
@@ -349,6 +349,8 @@ def _create_eval_sample(doc, context_size):
 
     # positive entities
     entity_spans, entity_types, entity_labels = [], [], []
+
+
     for e in doc.entities:
         # print(e.phrase, e.tokens)
         entity_spans.append(e.span)
@@ -378,8 +380,11 @@ def _create_eval_sample(doc, context_size):
             for j in range(latter.span[0], latter.span[1]):
                 rel_labels[i][j] = rel.relation_label.index
 
-    rel_types = torch.tensor([r.index for r in rel_types], dtype=torch.long)
-    # rel_labels = torch.tensor(sum(rel_labels, []))
+    if not doc.relations: # no relations included:
+        rel_types = torch.tensor([], dtype=torch.long)
+    else:
+        rel_types = torch.tensor([r.index for r in rel_types], dtype=torch.long)
+
 
     # create tensors
     # token indices
@@ -427,6 +432,7 @@ def _create_train_batch(samples):
     batch_token_masks = []
     batch_start_token_masks = []
 
+
     for sample in samples:
         encoding = sample.encoding
         ctx_mask = sample.ctx_mask
@@ -451,6 +457,7 @@ def _create_train_batch(samples):
         
         batch_rel_labels.append(rel_labels)
         batch_entity_labels.append(entity_labels)
+
 
         batch_token_masks.append(token_masks)
         batch_start_token_masks.append(start_token_masks)

@@ -42,6 +42,10 @@ class BeamSearch(object):
         return
 
     @property
+    def get_beam_size(self):
+        return self._beam_size
+    
+    @property
     def get_curr_state(self):
         return self._curr_ys[-1]
 

@@ -158,7 +158,7 @@ class EntityType:
 class Token:
     def __init__(self, tid: int, index: int, span_start: int, span_end: int, phrase: str):
         self._tid = tid  # ID within the corresponding dataset
-        self._index = index  # original token index in document
+        self._index = index  # original token index in sentence
 
         self._span_start = span_start  # start of token span in document (inclusive)
         self._span_end = span_end  # end of token span in document (exclusive)
@@ -202,6 +202,7 @@ class Token:
 class TokenSpan:
     def __init__(self, tokens):
         self._tokens = tokens
+    
 
     @property
     def span_start(self):
@@ -243,7 +244,7 @@ class Entity:
 
     def as_tuple_span(self):
         return self.span_start, self.span_end, self._entity_type
-
+    
     @property
     def entity_type(self):
         return self._entity_type
@@ -448,9 +449,6 @@ class Dataset:
     def create_entity(self, entity_type, entity_labels, tokens, phrase) -> Entity:
 
         mention = Entity(self._eid, entity_type, entity_labels, tokens, phrase)
-        if len(tokens) == 0:
-            print("!!!!!")
-            exit(-1)
         self._entities[self._eid] = mention
         self._eid += 1
         return mention

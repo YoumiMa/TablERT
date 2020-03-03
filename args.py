@@ -55,6 +55,7 @@ def train_argparser():
 
     # Logging
     arg_parser.add_argument('--save_path', type=str, help="Path to directory where model checkpoints are stored")
+    arg_parser.add_argument('--save_best', action='store_true', default=False, help= "Save the model with best validation performance")
     arg_parser.add_argument('--init_eval', action='store_true', default=False,
                             help="If true, evaluate validation set before training")
     arg_parser.add_argument('--save_optimizer', action='store_true', default=False,
@@ -74,6 +75,7 @@ def train_argparser():
     arg_parser.add_argument('--lr', type=float, default=5e-5, help="Learning rate")
     arg_parser.add_argument('--lr_warmup', type=float, default=0.1,
                             help="Proportion of total train iterations to warmup in linear increase/decrease schedule")
+    arg_parser.add_argument('--scheduler', type=str, default='linear_warmup', help="LR scheduler type")
     arg_parser.add_argument('--weight_decay', type=float, default=0.01, help="Weight decay to apply")
     arg_parser.add_argument('--max_grad_norm', type=float, default=1.0, help="Maximum gradient norm")
 

@@ -22,12 +22,12 @@ SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 
 class Evaluator:
     def __init__(self, dataset: Dataset, input_reader: JsonInputReader, text_encoder: BertTokenizer,
-                 rel_filter_threshold: float, example_count: int, example_path: str, 
+                 model_type: str, example_count: int, example_path: str, 
                  epoch: int, dataset_label: str, max_epoch: int = 0):
         self._text_encoder = text_encoder
         self._input_reader = input_reader
         self._dataset = dataset
-        self._rel_filter_threshold = rel_filter_threshold
+        self._model_type = model_type
 
         self._max_epoch = max_epoch
         self._epoch = epoch
@@ -58,55 +58,52 @@ class Evaluator:
 
         for i in range(batch_size):
             # get model predictions for sample
+            
             entity_clf = batch_entity_clf[i]
-            # rel_clf = batch_rel_clf[i]
 
-            ### beam search
-            # beam_entity = BeamSearch(entity_clf.shape[2])
-            # context_size = entity_clf.shape[1]
-            # for j in range(context_size):
-            #     beam_entity.advance(entity_clf.squeeze(0)[j])
 
-            # entity_scores, entity_preds = beam_entity.get_best_path 
+            if self._model_type == 'table_filling':
 
-            # pred_entities = self._convert_pred_entities_start(entity_preds, entity_scores, 
-            #     batch.token_masks[i], start_labels, end_labels)
+                rel_clf = batch_rel_clf[i]
+                ### beam search
+                beam_entity = BeamSearch(entity_clf.shape[2])
+                context_size = entity_clf.shape[1]
+                for j in range(context_size):
+                    beam_entity.advance(entity_clf.squeeze(0)[j])
 
-            ### for bert baseline
-            entity_scores, entity_preds = torch.max(entity_clf, dim=1)
-            entity_scores = entity_scores[1:-1]
-            entity_preds = entity_preds[1:-1]
-            # print("entity_scores:", entity_scores)            
-            ### training (word level):
-            pred_entities = self._convert_pred_entities_(entity_preds, entity_scores, 
-                batch.token_masks[i], start_labels)
+                entity_scores, entity_preds = beam_entity.get_best_path 
+
+                pred_entities = self._convert_pred_entities_start(entity_preds, entity_scores, 
+                    batch.token_masks[i], start_labels, end_labels)
+
+                ##### Relation.
+                rel_scores, rel_preds = rel_clf.max(dim=3)
+                # print("scores:", rel_scores)
+                # print("rel preds:", rel_preds)
+
+                pred_relations = self._convert_pred_relations_(rel_preds[i], rel_scores[i], 
+                                                                pred_entities, batch.token_masks[i])
+            elif self._model_type == 'bert_ner':
+
+                entity_scores, entity_preds = torch.max(entity_clf, dim=1)
+                entity_scores = entity_scores[1:-1]
+                entity_preds = entity_preds[1:-1]
+                # print("entity_scores:", entity_scores)            
+                ### training (word level):
+                pred_entities = self._convert_pred_entities_(entity_preds, entity_scores, 
+                    batch.token_masks[i], start_labels)
+
+                pred_relations = []
 
          
             if self._epoch + 1 >= self._max_epoch:
                 
-                # self.update_bio_file(entity_preds)
-                self.update_bio_file_(entity_preds, batch.start_token_masks[i])
+                self.update_bio_file(entity_preds) if self._model_type == 'table_filling' else self.update_bio_file_(entity_preds, batch.start_token_masks[i])
+
+            
 
             self._pred_entities.append(pred_entities)
-            # print("preds:", pred_entities)
-
-            # beam_rel = BeamSearch(rel_clf.shape[2])
-            # context_size = rel_clf.shape[1]
-            # # print("rel clf:", rel_clf.shape)
-            # # exit(-1)
-            # for j in range(context_size):
-            #     beam_rel.advance(rel_clf.squeeze(0)[j])
-
-            # rel_scores, rel_preds = beam_rel.get_best_path
-
-            # # print("preds", rel_preds)
-            # rel_preds_split = rel_preds.split([i for i in range(entity_preds.shape[-1]-1, 0, -1)],dim=0)
-            # # print("split:",rel_preds_split)
-            # pred_relations = self._convert_pred_relations(rel_preds_split, rel_scores, 
-            #                                                 pred_entities, batch.token_masks[i])
-            # # print("preds converted:", pred_relations)
-            # # print("="*50)
-            # self._pred_relations.append(pred_relations)    
+            self._pred_relations.append(pred_relations)    
 
 
     def update_bio_file_(self, preds: torch.tensor, token_mask: torch.tensor):
@@ -430,6 +427,44 @@ class Evaluator:
         # print('???????',[preds[2].index for preds in converted_preds])
         return converted_preds
 
+    def _convert_pred_relations_(self, pred_types: torch.tensor, pred_scores: torch.tensor, 
+                                pred_entities: List[tuple], token_mask: torch.tensor):
+        converted_rels = []
+        pred_types = pred_types.fill_diagonal_(0)
+        for i in range(pred_types.shape[-1]):
+            for j in range(i, pred_types.shape[-1]):
+                label_idx = pred_types[i,j].float()
+                if label_idx != 0:    
+                    pred_rel_type = self._input_reader.get_relation_type(torch.ceil(label_idx/2).item())
+                    if label_idx in self._input_reader._right_rel_label: # R-X
+                        head_idx = i 
+                        tail_idx = j 
+                    else: # L-X
+                        head_idx = j 
+                        tail_idx = i
+                    # print(head_idx, tail_idx, label_idx)
+                    head_entity = self._find_entity(head_idx + 1, token_mask, pred_entities)
+                    # print("head entity:", head_entity)
+                    tail_entity = self._find_entity(tail_idx + 1, token_mask, pred_entities)
+                    # print("tail entity:", tail_entity)
+                    if head_entity == None or tail_entity == None:
+                        continue
+                    pred_head_type = head_entity[2]
+                    pred_tail_type = tail_entity[2]
+                    score = pred_scores[i][j].item()
+
+                    head_start, head_end = head_entity[0], head_entity[1]
+                    tail_start, tail_end = tail_entity[0], tail_entity[1]
+                    converted_rel = ((head_start, head_end, pred_head_type),
+                                     (tail_start, tail_end, pred_tail_type), pred_rel_type, score)
+
+                    converted_rels.append(converted_rel)
+        return converted_rels
+
+
+
+
+
     def _convert_pred_relations(self, pred_types: List[torch.tensor], pred_scores: torch.tensor, 
                                 pred_entities: List[tuple], token_mask: torch.tensor):
         converted_rels = []
@@ -467,9 +502,7 @@ class Evaluator:
 
     def _find_entity(self, idx, token_mask, entities):
         span = token_mask[idx].nonzero().squeeze(0)
-        # print("Span:", span)
         for e in entities:
-            # print("e:", e)
             if span[0] == e[0]:
                 return e
         return None

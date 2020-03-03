@@ -71,7 +71,7 @@ def align_bert_embeddings(h: torch.tensor, token_mask: torch.tensor, cls_repr: t
 
     for i in range(context_size):
         if torch.any(token_mask[i]):
-            word_embeddings_lst.append(pick_first(h, token_mask[i]))
+            word_embeddings_lst.append(max_pooling(h, token_mask[i]))
 
     word_embeddings = torch.stack(word_embeddings_lst, dim=0)
     return word_embeddings
@@ -91,11 +91,10 @@ class TableF(BertPreTrainedModel):
         self._tokenizer = tokenizer
         # layers
         self.entity_label_embedding = nn.Embedding(entity_labels , entity_label_embedding)
-        self.rel_classifier = nn.Linear(config.hidden_size * 5 + entity_label_embedding * 2, relation_labels)
         self.entity_classifier = nn.Linear(config.hidden_size * 2 + entity_label_embedding , entity_labels)
         # sel.crf = torchcrf.CRF(entity_labels)
         self.dropout = nn.Dropout(prop_drop)
-        self.attn = MultiHeadAttention(relation_labels, entity_labels, entity_labels, device)
+        self.attn = MultiHeadAttention(relation_labels, config.hidden_size + entity_label_embedding , 5 , device)
 
         self._relation_labels = relation_labels
         self._entity_labels = entity_labels
@@ -157,7 +156,18 @@ class TableF(BertPreTrainedModel):
 
         return entity_logits
 
-    def _forward_relation(self, h: torch.tensor, token_mask: torch.tensor, 
+    def _forward_relation(self, h: torch.tensor, entity_logits: torch.tensor):
+
+        entity_labels = torch.argmax(entity_logits, dim=2)
+        # entity_labels = gold_entity[batch].unsqueeze(0)
+        entity_label_embeddings = self.entity_label_embedding(entity_labels)
+        rel_embedding = torch.cat([h[1:-1,:].unsqueeze(0).contiguous(), entity_label_embeddings], dim=2)
+        rel_embedding = self.dropout(rel_embedding)
+        att, _ = self.attn(rel_embedding, rel_embedding, rel_embedding)
+        
+        return att.permute(0,2,3,1).contiguous()
+
+    def _forward_relation_old(self, h: torch.tensor, token_mask: torch.tensor, 
                 i: int,  j: int, i_embedding: torch.tensor, j_embedding: torch.tensor,
                 entity_masks: torch.tensor, is_eval: bool):
 
@@ -209,7 +219,7 @@ class TableF(BertPreTrainedModel):
         return rel_logits
 
     def _forward_train(self, encodings: torch.tensor, context_mask: torch.tensor, 
-                        token_mask: torch.tensor, start_labels: List[int],
+                        token_mask: torch.tensor, start_labels: List[int], gold_entity: torch.tensor,
                         allow_rel: bool):  
         # get contextualized token embeddings from last transformer layer
         context_mask = context_mask.float()
@@ -247,7 +257,7 @@ class TableF(BertPreTrainedModel):
             prev_i = 0
             prev_label = 0
 
-            word_pairs = itertools.combinations(range(context_size-2), 2)
+            # word_pairs = itertools.combinations(range(context_size-2), 2)
             
             # Entity classification.
             for i in range(1, context_size-1): # no [CLS], no [SEP] 
@@ -282,29 +292,16 @@ class TableF(BertPreTrainedModel):
 
             curr_entity_logits = torch.stack(entity_logits_batch, dim=1)
             all_entity_logits.append(curr_entity_logits)
-            # print("entity mask:", entity_masks)
-
             # Relation classification.
             if allow_rel:
 
-                # rel_logits = self.attn(curr_entity_logits, curr_entity_logits, curr_entity_logits)
-
-                preds = torch.argmax(torch.stack(entity_logits_batch, dim=1), dim=2)
-                label_embeddings = self.entity_label_embedding(preds)
-                # print(label_embeddings)
-                for i in range(1, context_size-1):
-                    for j in range(i+1, context_size-1):
-                        curr_rel_logits = 1
-                        # print("i,j,logits", i, j, curr_rel_logits)
-                        # rel_logits_batch.append(curr_rel_logits)
-                # print("length:", len(rel_logits_batch))
-                # all_rel_logits.append(torch.stack(rel_logits_batch, dim=1))
+                curr_rel_logits = self._forward_relation(word_h, curr_entity_logits)
+                all_rel_logits.append(curr_rel_logits)
                         
-
         return all_entity_logits, all_rel_logits
 
     def _forward_eval(self, encodings: torch.tensor, context_mask: torch.tensor, 
-                        token_mask: torch.tensor, start_labels: List[int]):
+                        token_mask: torch.tensor, start_labels: List[int], gold_entity: torch.tensor):
         
         context_mask = context_mask.float()
         h = self.bert(input_ids=encodings, attention_mask=context_mask)[0]
@@ -363,37 +360,28 @@ class TableF(BertPreTrainedModel):
                     prev_i = i
                     prev_label = curr_label
                 else:
-                    entity_masks[prev_i:i+1, prev_i:i+1] = 1     
+                    entity_masks[prev_i:i+1, prev_i:i+1] = 1   
 
-                entity_logits_batch.append(curr_entity_logits)
+                entity_logits_batch.append(curr_entity_logits)  
+            
+            curr_entity_logits = torch.stack(entity_logits_batch, dim=1)
+            all_entity_logits.append(curr_entity_logits)
 
-            all_entity_logits.append(torch.stack(entity_logits_batch, dim=1))
             # print(all_entity_logits)
             # print("entity mask:", entity_masks)
             
 
             # Relation classification.
 
-            # preds = torch.argmax(torch.stack(entity_logits_batch, dim=1), dim=2)
-            # label_embeddings = self.entity_label_embedding(preds)
-
-            # for i in range(1, context_size-1):
-            #     for j in range(i+1, context_size-1):
-            #         curr_rel_logits = self._forward_relation(h[batch], token_mask[batch],
-            #                             i, j, label_embeddings[:,i-1], label_embeddings[:,j-1],
-            #                             entity_masks, True)
-            #         # print("i,j,logits", i, j, curr_rel_logits)
-            #         rel_logits_batch.append(curr_rel_logits)
-            # # print("length:", len(rel_logits_batch))
-            # all_rel_logits.append(torch.stack(rel_logits_batch, dim=1))
-
+            curr_rel_logits = self._forward_relation(word_h, curr_entity_logits)
+            all_rel_logits.append(curr_rel_logits)
 
         # apply softmax
         for batch in range(batch_size):
             # print(all_entity_logits[batch])
             all_entity_logits[batch] = torch.softmax(all_entity_logits[batch], dim=2)
             # print("after softmax:", all_entity_logits[batch])
-            # all_rel_logits[batch] = torch.softmax(all_rel_logits[batch], dim=2)
+            all_rel_logits[batch] = torch.softmax(all_rel_logits[batch], dim=3)
 
         return all_entity_logits, all_rel_logits
 
@@ -421,7 +409,6 @@ class bert_ner(BertPreTrainedModel):
         self._tokenizer = tokenizer
         # layers
         self.entity_classifier = nn.Linear(config.hidden_size, entity_labels)
-        # sel.crf = torchcrf.CRF(entity_labels)
         self.dropout = nn.Dropout(prop_drop)
 
         self._relation_labels = relation_labels
@@ -442,6 +429,7 @@ class bert_ner(BertPreTrainedModel):
     def _forward_train(self, encodings: torch.tensor, context_mask: torch.tensor): 
 
         h = self.bert(input_ids=encodings, attention_mask=context_mask)[0]
+
 
         h = self.dropout(h)
 
@@ -469,6 +457,8 @@ class bert_ner(BertPreTrainedModel):
     def _forward_eval(self, encodings: torch.tensor, context_mask: torch.tensor):
 
         h = self.bert(input_ids=encodings, attention_mask=context_mask)[0]
+
+        h = self.dropout(h)
 
         all_entity_logits = self.entity_classifier(h)
 

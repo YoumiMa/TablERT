@@ -1,6 +1,7 @@
 from abc import ABC
 
 import torch
+import torch.nn.functional as F
 from spert.beam import BeamSearch
 
 
@@ -22,17 +23,13 @@ class SpERTLoss(Loss):
     def compute(self, entity_logits, entity_labels, rel_logits, rel_labels, is_eval=False):
         # entity loss
 
-        train_loss = 0.
-
+        entity_loss = 0.
+        rel_loss = 0.
         for b, batch_logits in enumerate(entity_logits):
             # batch_entities = entity_labels[b][1:1+batch_logits.shape[1]]
             batch_entities = entity_labels[b]
-            # # print(batch_logits.shape)
-            # entity_loss = self._entity_criterion(batch_logits.squeeze(0).squeeze(1), batch_entities)
-            # train_loss += entity_loss.sum()/batch_logits.shape[1]
+            context_size = batch_entities.shape[-1]
 
-            context_size = batch_logits.shape[1]
-            # print(context_size)
             local_scores = []
             beam_paths = []
             ptr = []
@@ -40,11 +37,9 @@ class SpERTLoss(Loss):
             for i in range(context_size): # no [CLS], no [SEP]
                 # print("logits:", batch_logits.squeeze(0)[i])
                 logits = batch_logits.squeeze(0)[i]
-                # print("softmaxed:", logits)
                 beam.advance(logits)
                 preds = beam.get_curr_state
                 gold = batch_entities[i]
-                # print("preds:", preds, "gold:", gold)
                 local_scores.append(logits[0][gold])
                 # print("beam:", beam.get_curr_scores)
                 # print("sum:", torch.logsumexp(beam.get_curr_scores, dim=0))
@@ -66,62 +61,39 @@ class SpERTLoss(Loss):
 
             ### final loss ###
             p = ptr[-1]
-            train_loss += - sum(local_scores[:p+1]) +  beam_paths[min(p, context_size-1)]
-            
-            # print("loss:", train_loss)
-            # train_loss = self._entity_criterion(batch_logits.squeeze(0), entity_labels[b][1:-1])
-            # train_loss =  (train_loss * entity_mask[b][1:-1]).sum() / entity_mask[b][1:-1].sum()
-            # train_loss /= context_size
-
-            # print(local_scores, sum(local_scores))
-            # train_loss += entity_loss
+            entity_loss += - sum(local_scores[:p+1]) +  beam_paths[min(p, context_size-1)]
+            # print("entity loss:", train_loss)
 
         if rel_logits != []:
+
             for b, batch_logits in enumerate(rel_logits):
-                # print(batch_logits.shape, rel_labels)
-                # exit(0)
-                batch_rels = rel_labels[b]
-                context_size = batch_logits.shape[1]
-                local_scores = []
-                beam_paths = []
-                ptr = []
-                beam = BeamSearch(batch_logits.shape[2])
-                for i in range(context_size): 
-                    logits = batch_logits.squeeze(0)[i]
-                    beam.advance(logits)
-                    preds = beam.get_curr_state
-                    gold = batch_rels[i]
-                    # print("!!!!preds:", preds, "gold:", gold)
-                    local_scores.append(logits[0][gold])
-                    # print("beam:", beam.get_curr_scores)
-                    # print("sum:", torch.logsumexp(beam.get_curr_scores, dim=0))
-                    beam_paths.append(torch.logsumexp(beam.get_curr_scores, dim=0))
-                    # print(beam_paths)
-                    # print("curr scores:", beam_paths)
-                    if gold not in preds:
-                        ptr.append(i)
-
-
-                if ptr == []:
-                    ptr.append(context_size)
-            # for p in ptr:
-                # print("p:", p , - sum(local_scores[:p+1]) +  sum(greedy_path[:p+1]))
+                rel_mask = torch.triu(torch.ones_like(rel_labels[b], dtype=torch.bool), diagonal=1)
                 
-                # for p in ptr:
-                p = ptr[-1]
-                train_loss += - sum(local_scores[:p+1]) +  beam_paths[min(p, context_size-1)]
+                batch_labels = torch.masked_select(rel_labels[b], rel_mask)
+                batch_logits = batch_logits[:, rel_mask]
+                batch_logits = batch_logits.view(-1, batch_logits.shape[-1])
 
-                # print(local_scores, sum(local_scores))             
 
-        # print("loss:", train_loss)
-        # print("=" * 50)
+                local_scores = batch_logits[torch.arange(batch_labels.shape[0]), batch_labels]
+                beam_scores, preds = batch_logits.topk(k=beam.get_beam_size, dim=1, largest=True, sorted=True)
+                gold_in_beam = (preds == batch_labels.unsqueeze(1).repeat(1,beam.get_beam_size)).sum(dim=1)
+                wrong_preds = (gold_in_beam == 0).nonzero()
+                # print("wrong preds:", wrong_preds)
+
+                p = batch_labels.shape[-1] if wrong_preds.nelement() == 0 else wrong_preds[-1].item()
+
+                rel_loss += - sum(local_scores[:p+1]) + torch.logsumexp(beam_scores[:p+1].sum(dim=0), dim=0)
+
+        # print("entity loss:", entity_loss, "rel loss:", rel_loss)    
+        train_loss = entity_loss + rel_loss
+        
         if not is_eval:
             train_loss.backward()
             torch.nn.utils.clip_grad_norm_(self._model.parameters(), self._max_grad_norm)
             self._optimizer.step()
             self._scheduler.step()
             # self._model.zero_grad()
-        return train_loss.item()
+        return torch.tensor([train_loss.item(), entity_loss.item(), rel_loss.item()])
 
 
 class NERLoss(Loss):
@@ -150,4 +122,4 @@ class NERLoss(Loss):
             self._optimizer.step()
             self._scheduler.step()
             # self._model.zero_grad()
-        return train_loss.item()
+        return torch.tensor([train_loss.item()])
