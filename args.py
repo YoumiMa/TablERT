@@ -35,7 +35,7 @@ def _add_common_args(arg_parser):
     arg_parser.add_argument('--max_pairs', type=int, default=1000,
                             help="Maximum entity pairs to process during training/evaluation")
     arg_parser.add_argument('--rel_filter_threshold', type=float, default=0.4, help="Filter threshold for relations")
-    arg_parser.add_argument('--size_embedding', type=int, default=25, help="Dimensionality of size embedding")
+    arg_parser.add_argument('--att_hidden', type=int, default=5, help="Dimensionality of size embedding")
     arg_parser.add_argument('--entity_label_embedding', type=int, default=50, help="Dimensionality of entity label embedding")
     arg_parser.add_argument('--prop_drop', type=float, default=0.1, help="Probability of dropout used in SpERT")
     arg_parser.add_argument('--freeze_transformer', action='store_true', default=False, help="Freeze BERT weights")
@@ -76,6 +76,7 @@ def train_argparser():
     arg_parser.add_argument('--lr_warmup', type=float, default=0.1,
                             help="Proportion of total train iterations to warmup in linear increase/decrease schedule")
     arg_parser.add_argument('--scheduler', type=str, default='linear_warmup', help="LR scheduler type")
+    arg_parser.add_argument('--num_cycles', type=float, default= 2.0, help="Number of cycles for LR scheduler")
     arg_parser.add_argument('--weight_decay', type=float, default=0.01, help="Weight decay to apply")
     arg_parser.add_argument('--max_grad_norm', type=float, default=1.0, help="Maximum gradient norm")
 

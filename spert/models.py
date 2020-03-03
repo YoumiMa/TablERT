@@ -82,7 +82,7 @@ class TableF(BertPreTrainedModel):
 
     def __init__(self, config: BertConfig, tokenizer: BertTokenizer,
                  relation_labels: int, entity_labels: int,
-                 entity_label_embedding: int,  prop_drop: float, 
+                 entity_label_embedding: int,  att_hidden: int, prop_drop: float, 
                  freeze_transformer: bool, device):
         super(TableF, self).__init__(config)
 
@@ -94,7 +94,7 @@ class TableF(BertPreTrainedModel):
         self.entity_classifier = nn.Linear(config.hidden_size * 2 + entity_label_embedding , entity_labels)
         # sel.crf = torchcrf.CRF(entity_labels)
         self.dropout = nn.Dropout(prop_drop)
-        self.attn = MultiHeadAttention(relation_labels, config.hidden_size + entity_label_embedding , 5 , device)
+        self.attn = MultiHeadAttention(relation_labels, config.hidden_size + entity_label_embedding , att_hidden , device)
 
         self._relation_labels = relation_labels
         self._entity_labels = entity_labels

@@ -104,6 +104,7 @@ class SpERTTrainer(BaseTrainer):
                                             # SpERT model parameters
                                             relation_labels=input_reader.relation_label_count,
                                             entity_labels=input_reader.entity_label_count,
+                                            att_hidden = self.args.att_hidden,
                                             prop_drop=self.args.prop_drop,
                                             entity_label_embedding=self.args.entity_label_embedding,
                                             freeze_transformer=self.args.freeze_transformer,
@@ -139,7 +140,7 @@ class SpERTTrainer(BaseTrainer):
             scheduler = transformers.get_cosine_with_hard_restarts_schedule_with_warmup(optimizer,
                                                                      num_warmup_steps=args.lr_warmup * updates_total,
                                                                      num_training_steps=updates_total,
-                                                                     num_cycles= 3.0)            
+                                                                     num_cycles= args.num_cycles)            
 
 
         # create loss function
@@ -208,6 +209,7 @@ class SpERTTrainer(BaseTrainer):
                                             # no node for 'none' class
                                             relation_labels=input_reader.relation_label_count,
                                             entity_labels=input_reader.entity_label_count,
+                                            att_hidden = self.args.att_hidden,
                                             prop_drop=self.args.prop_drop,
                                             entity_label_embedding=self.args.entity_label_embedding,
                                             freeze_transformer=self.args.freeze_transformer,
