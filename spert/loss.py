@@ -18,13 +18,14 @@ class SpERTLoss(Loss):
         self._optimizer = optimizer
         self._scheduler = scheduler
         self._max_grad_norm = max_grad_norm
+        self._device = model._device
 
 
     def compute(self, entity_logits, entity_labels, rel_logits, rel_labels, is_eval=False):
         # entity loss
 
-        entity_loss = 0.
-        rel_loss = 0.
+        entity_loss = torch.tensor(0., dtype=torch.float).to(self._device)
+        rel_loss = torch.tensor(0., dtype=torch.float).to(self._device)
         for b, batch_logits in enumerate(entity_logits):
             # batch_entities = entity_labels[b][1:1+batch_logits.shape[1]]
             batch_entities = entity_labels[b]
@@ -50,8 +51,8 @@ class SpERTLoss(Loss):
                     ptr.append(i)
 
 
-            if ptr == []:
-                ptr.append(context_size)
+            # if ptr == []:
+            #     ptr.append(context_size)
             # for p in ptr:
             #     print("p:", p , - sum(local_scores[:p+1]) +  sum(greedy_path[:p+1]))
 
@@ -60,10 +61,14 @@ class SpERTLoss(Loss):
             #     train_loss += - sum(local_scores[:p+1]) +  beam_paths[min(p, context_size-1)]
 
             ### final loss ###
-            p = ptr[-1]
-            
-            entity_loss += - sum(local_scores[:p+1]) +  beam_paths[min(p, context_size-1)]
+
+            if ptr != []:
+                entity_loss += - sum(local_scores[:ptr[-1]+1]) +  beam_paths[min(ptr[-1], context_size-1)]
             # print("entity loss:", train_loss)
+            else:
+                if rel_logits == []:
+                    entity_loss += - sum(local_scores[:context_size+1]) +  beam_paths[context_size-1]
+
 
         if rel_logits != []:
 

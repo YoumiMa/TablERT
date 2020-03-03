@@ -89,6 +89,7 @@ class TableF(BertPreTrainedModel):
         # BERT model
         self.bert = BertModel(config)
         self._tokenizer = tokenizer
+        self._device = device
         # layers
         self.entity_label_embedding = nn.Embedding(entity_labels , entity_label_embedding)
         self.entity_classifier = nn.Linear(config.hidden_size * 2 + entity_label_embedding , entity_labels)
@@ -144,13 +145,11 @@ class TableF(BertPreTrainedModel):
 
         # print(curr_repr.shape, masked_repr_pool.shape, prev_embedding.shape)
         # concat them for linear classification.
-        entity_repr = torch.cat([curr_repr, masked_repr_pool, prev_embedding], dim=1)
-
+        entity_repr = torch.cat([self.dropout(curr_repr), self.dropout(masked_repr_pool), prev_embedding], dim=1)
+        
         # dropout.
-        if not is_eval:
-            # print(entity_repr)
-            entity_repr = self.dropout(entity_repr)
-            # print("dropeed:", entity_repr)
+        # entity_repr = self.dropout(entity_repr)
+
 
         entity_logits = self.entity_classifier(entity_repr)
 
@@ -161,8 +160,8 @@ class TableF(BertPreTrainedModel):
         entity_labels = torch.argmax(entity_logits, dim=2)
         # entity_labels = gold_entity[batch].unsqueeze(0)
         entity_label_embeddings = self.entity_label_embedding(entity_labels)
-        rel_embedding = torch.cat([h[1:-1,:].unsqueeze(0).contiguous(), entity_label_embeddings], dim=2)
-        rel_embedding = self.dropout(rel_embedding)
+        rel_embedding = torch.cat([self.dropout(h[1:-1,:].unsqueeze(0).contiguous()), entity_label_embeddings], dim=2)
+        # rel_embedding = self.dropout(rel_embedding)
         att, _ = self.attn(rel_embedding, rel_embedding, rel_embedding)
         
         return att.permute(0,2,3,1).contiguous()
