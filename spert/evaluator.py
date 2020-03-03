@@ -22,12 +22,12 @@ SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 
 class Evaluator:
     def __init__(self, dataset: Dataset, input_reader: JsonInputReader, text_encoder: BertTokenizer,
-                 rel_filter_threshold: float, example_count: int, example_path: str, 
+                 model_type: str, example_count: int, example_path: str, 
                  epoch: int, dataset_label: str, max_epoch: int = 0):
         self._text_encoder = text_encoder
         self._input_reader = input_reader
         self._dataset = dataset
-        self._rel_filter_threshold = rel_filter_threshold
+        self._model_type = model_type
 
         self._max_epoch = max_epoch
         self._epoch = epoch
@@ -58,52 +58,75 @@ class Evaluator:
 
         for i in range(batch_size):
             # get model predictions for sample
-            entity_clf = batch_entity_clf[i]
-            # rel_clf = batch_rel_clf[i]
-            beam_entity = BeamSearch(entity_clf.shape[2])
-            context_size = entity_clf.shape[1]
-            for j in range(context_size):
-                beam_entity.advance(entity_clf.squeeze(0)[j])
-
-            entity_scores, entity_preds = beam_entity.get_best_path 
-            # entity_scores, entity_preds = torch.max(entity_clf, dim=2)
-            # print(batch.entity_labels)
-            # print("entity_preds:", entity_preds)
-
-            if self._epoch == self._max_epoch:
-                self.update_bio_file(entity_preds)
-
-            # print("entity_scores:", entity_scores)            
-            ### training (word level):
-            pred_entities = self._convert_pred_entities_start(entity_preds, entity_scores, 
-                batch.token_masks[i], start_labels, end_labels)
-
-            ### fine tuning (token level):
-            # pred_entities = self._convert_pred_entities_(entity_preds.squeeze(0), entity_scores.squeeze(0), 
-                # batch.token_masks[i], start_labels)
-            # print("pred_entities:", pred_entities)           
             
+            entity_clf = batch_entity_clf[i]
+
+
+            if self._model_type == 'table_filling':
+
+                rel_clf = batch_rel_clf[i]
+                ### beam search
+                beam_entity = BeamSearch(entity_clf.shape[2])
+                context_size = entity_clf.shape[1]
+                for j in range(context_size):
+                    beam_entity.advance(entity_clf.squeeze(0)[j])
+
+                entity_scores, entity_preds = beam_entity.get_best_path 
+
+                pred_entities = self._convert_pred_entities_start(entity_preds, entity_scores, 
+                    batch.token_masks[i], start_labels, end_labels)
+
+                ##### Relation.
+                rel_scores, rel_preds = rel_clf.max(dim=3)
+                # print("scores:", rel_scores)
+                # print("rel preds:", rel_preds)
+
+                pred_relations = self._convert_pred_relations_(rel_preds[i], rel_scores[i], 
+                                                                pred_entities, batch.token_masks[i])
+            elif self._model_type == 'bert_ner':
+
+                entity_scores, entity_preds = torch.max(entity_clf, dim=1)
+                entity_scores = entity_scores[1:-1]
+                entity_preds = entity_preds[1:-1]
+                # print("entity_scores:", entity_scores)            
+                ### training (word level):
+                pred_entities = self._convert_pred_entities_(entity_preds, entity_scores, 
+                    batch.token_masks[i], start_labels)
+
+                pred_relations = []
+
+         
+            if self._epoch + 1 >= self._max_epoch:
+                
+                self.update_bio_file(entity_preds) if self._model_type == 'table_filling' else self.update_bio_file_(entity_preds, batch.start_token_masks[i])
+
+            
+
             self._pred_entities.append(pred_entities)
-            # print("preds:", pred_entities)
+            self._pred_relations.append(pred_relations)    
 
-            # beam_rel = BeamSearch(rel_clf.shape[2])
-            # context_size = rel_clf.shape[1]
-            # # print("rel clf:", rel_clf.shape)
-            # # exit(-1)
-            # for j in range(context_size):
-            #     beam_rel.advance(rel_clf.squeeze(0)[j])
 
-            # rel_scores, rel_preds = beam_rel.get_best_path
-
-            # # print("preds", rel_preds)
-            # rel_preds_split = rel_preds.split([i for i in range(entity_preds.shape[-1]-1, 0, -1)],dim=0)
-            # # print("split:",rel_preds_split)
-            # pred_relations = self._convert_pred_relations(rel_preds_split, rel_scores, 
-            #                                                 pred_entities, batch.token_masks[i])
-            # # print("preds converted:", pred_relations)
-            # # print("="*50)
-            # self._pred_relations.append(pred_relations)    
-
+    def update_bio_file_(self, preds: torch.tensor, token_mask: torch.tensor):
+        
+        pred_tags = []
+        # print(token_mask)
+        summed_mask = token_mask.sum(dim=0)
+        # print(preds)
+        # print(summed_mask)
+        for i in range(summed_mask.shape[-1]):
+            if summed_mask[i]:
+                tag = self._input_reader._idx2entity_label[preds[i-1].item()].short_name
+                if tag.startswith('U'):
+                    tag = 'B' + tag[1:]
+                elif tag.startswith('L'):
+                    if pred_tags == [] or pred_tags[-1][1:] != tag[1:]:
+                        tag = 'B' + tag[1:]
+                    else:
+                        tag = 'I' + tag[1:]
+                pred_tags.append(tag)
+        # print(pred_tags)
+        self._input_reader._bio_file['preds'].append(pred_tags)
+        return 
 
     def update_bio_file(self, preds: torch.tensor):
         
@@ -123,6 +146,25 @@ class Evaluator:
         self._input_reader._bio_file['preds'].append(pred_tags)
         return 
 
+
+    def _write_bio_file(self):
+
+        file_path = self._input_reader._bio_file['path']
+        tokens = self._input_reader._bio_file['tokens']
+        tags = self._input_reader._bio_file['tags']
+        preds = self._input_reader._bio_file['preds']
+
+        contents = []
+        for t in range(len(tokens)):
+            contents.append([list(i) for i in zip(tokens[t], tags[t], preds[t])])
+
+        with open(file_path, 'w+') as f:
+            for sentence in contents:
+                f.writelines([' '.join(s)+'\n' for s in sentence])
+                f.write('\n')
+
+        return
+
     def compute_scores(self):
 
         print("Evaluation")
@@ -134,7 +176,7 @@ class Evaluator:
         gt, pred = self._convert_by_setting(self._gt_entities, self._pred_entities, include_entity_types=True)
         ner_eval = self._score(gt, pred, print_results=True)
         
-        if self._epoch == self._max_epoch:
+        if self._epoch + 1 >= self._max_epoch:
             self._write_bio_file()
 
 
@@ -274,12 +316,9 @@ class Evaluator:
         encoding_length = token_mask.shape[0]
         curr_type = 0
         start = 1
-
         for i in range(pred_types.shape[0]):
             curr_token = token_mask[i+1][1:encoding_length-1].nonzero()
-            # print("curr_token:",curr_token)
             type_idx = pred_types[i].item()
-            # print("entity type:", curr_type)
             score = pred_scores[i].item()
             
             if type_idx in start_labels and curr_type != 0:
@@ -319,7 +358,6 @@ class Evaluator:
 
         for i in range(pred_types.shape[0]):
             curr_token = token_mask[i+1][1:encoding_length-1].nonzero()
-            # print("curr_token:",curr_token)
             type_idx = pred_types[i].item()
             # print("entity type:", curr_type)
             score = pred_scores[i].item()
@@ -349,55 +387,83 @@ class Evaluator:
         return converted_preds
 
 
-    def _write_bio_file(self):
-
-        file_path = self._input_reader._bio_file['path']
-        tokens = self._input_reader._bio_file['tokens']
-        tags = self._input_reader._bio_file['tags']
-        preds = self._input_reader._bio_file['preds']
-
-        contents = []
-        for t in range(len(tokens)):
-            contents.append([list(i) for i in zip(tokens[t], tags[t], preds[t])])
-
-        with open(file_path, 'w+') as f:
-            for sentence in contents:
-                f.writelines([' '.join(s)+'\n' for s in sentence])
-                f.write('\n')
-
-        return
-
     def _convert_pred_entities_(self, pred_types: torch.tensor, pred_scores: torch.tensor, 
         token_mask: torch.tensor, start_labels: List[int]):
         converted_preds = []
         # print(pred_types)
-
+        # print("pred types:", pred_types)
         curr_type = 0
-        start = 0
+        start = 1
         encoding_length = token_mask.shape[0]
+        context_size = token_mask.shape[1]
         for i in range(encoding_length):
-            if torch.any(token_mask[i][1:encoding_length-1]): # a token here
-                span = token_mask[i][1:encoding_length-1].nonzero()
-                # print("span:", span)
-                type_ids = pred_types[token_mask[i][1:encoding_length-1]]
-                curr_score = pred_scores[token_mask[i][1:encoding_length-1]][0].item()
-                # print("curr:", type_ids)
-                type_id = math.ceil(type_ids[0]/4)
-                if type_id != curr_type or type_id in start_labels:
-                    if curr_type != 0:
-                        converted_pred = (start, span[0].item()+1, entity_type, curr_score)
-                        # print("appended:", start, span[0].item(), entity_type.short_name)
-                        converted_preds.append(converted_pred)
-                    start = span[0].item() + 1
-                    curr_type = type_id
-                    entity_type = self._input_reader.get_entity_type(curr_type)
-        if curr_type != 0:
-            converted_pred = (start, span[-1].item()+2 , entity_type, curr_score)
-            # print("appended:", start+1, i+2, entity_type.index)
+            if torch.any(token_mask[i][1:context_size-1]): # a token here
+                curr_token = token_mask[i][1:context_size-1].nonzero()
+                # print("curr token:", curr_token)
+                type_ids = pred_types[token_mask[i][1:context_size-1]]
+                # print("type ids:", type_ids)
+                score = pred_scores[token_mask[i][1:context_size-1]][0].item()
+
+                if type_ids[0].item() in start_labels and curr_type != 0:
+
+                    end = curr_token[0].item() + 1
+                    converted_pred = (start, end, entity_type, score)
+                    # print(i, "appended:", start, end, entity_type.short_name)
+                    converted_preds.append(converted_pred)                
+                    start = curr_token[0].item() + 1              
+
+                curr_type = math.ceil(type_ids[0].item()/4)
+                # print("curr type:", curr_type)
+                entity_type = self._input_reader.get_entity_type(curr_type)
+
+                if type_ids[0] == 0:
+                    start = curr_token[-1].item() + 2  
+        
+        if curr_type != 0 and curr_token[-1].item() + 2 <= encoding_length:
+            converted_pred = (start, curr_token[-1].item()+2 , entity_type, score)
+            # print("final appended:", start, curr_token[-1].item()+2, entity_type.short_name)
             converted_preds.append(converted_pred)            
 
         # print('???????',[preds[2].index for preds in converted_preds])
         return converted_preds
+
+    def _convert_pred_relations_(self, pred_types: torch.tensor, pred_scores: torch.tensor, 
+                                pred_entities: List[tuple], token_mask: torch.tensor):
+        converted_rels = []
+        pred_types = pred_types.fill_diagonal_(0)
+        for i in range(pred_types.shape[-1]):
+            for j in range(i, pred_types.shape[-1]):
+                label_idx = pred_types[i,j].float()
+                if label_idx != 0:    
+                    pred_rel_type = self._input_reader.get_relation_type(torch.ceil(label_idx/2).item())
+                    if label_idx in self._input_reader._right_rel_label: # R-X
+                        head_idx = i 
+                        tail_idx = j 
+                    else: # L-X
+                        head_idx = j 
+                        tail_idx = i
+                    # print(head_idx, tail_idx, label_idx)
+                    head_entity = self._find_entity(head_idx + 1, token_mask, pred_entities)
+                    # print("head entity:", head_entity)
+                    tail_entity = self._find_entity(tail_idx + 1, token_mask, pred_entities)
+                    # print("tail entity:", tail_entity)
+                    if head_entity == None or tail_entity == None:
+                        continue
+                    pred_head_type = head_entity[2]
+                    pred_tail_type = tail_entity[2]
+                    score = pred_scores[i][j].item()
+
+                    head_start, head_end = head_entity[0], head_entity[1]
+                    tail_start, tail_end = tail_entity[0], tail_entity[1]
+                    converted_rel = ((head_start, head_end, pred_head_type),
+                                     (tail_start, tail_end, pred_tail_type), pred_rel_type, score)
+
+                    converted_rels.append(converted_rel)
+        return converted_rels
+
+
+
+
 
     def _convert_pred_relations(self, pred_types: List[torch.tensor], pred_scores: torch.tensor, 
                                 pred_entities: List[tuple], token_mask: torch.tensor):
@@ -436,9 +502,7 @@ class Evaluator:
 
     def _find_entity(self, idx, token_mask, entities):
         span = token_mask[idx].nonzero().squeeze(0)
-        # print("Span:", span)
         for e in entities:
-            # print("e:", e)
             if span[0] == e[0]:
                 return e
         return None

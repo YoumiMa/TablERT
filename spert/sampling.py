@@ -17,7 +17,8 @@ multiprocessing.set_sharing_strategy('file_system')
 class TrainTensorBatch:
     def __init__(self, encodings: torch.tensor, ctx_masks: torch.tensor,
                  entity_types: torch.tensor, entity_labels: torch.tensor,
-                 rel_types: torch.tensor, rel_labels:torch.tensor, token_masks: torch.tensor):
+                 rel_types: torch.tensor, rel_labels:torch.tensor, 
+                 token_masks: torch.tensor, start_token_masks: torch.tensor):
         self.encodings = encodings
         self.ctx_masks = ctx_masks
 
@@ -28,6 +29,7 @@ class TrainTensorBatch:
         self.rel_labels = rel_labels
 
         self.token_masks = token_masks
+        self.start_token_masks = start_token_masks
 
     def to(self, device):
         encodings = self.encodings.to(device)
@@ -40,15 +42,17 @@ class TrainTensorBatch:
         rel_labels = self.rel_labels.to(device)
 
         token_masks = self.token_masks.to(device)
+        start_token_masks = self.start_token_masks.to(device)
 
         return TrainTensorBatch(encodings, ctx_masks, entity_types, entity_labels,
-                                rel_types, rel_labels, token_masks)
+                                rel_types, rel_labels, token_masks, start_token_masks)
 
 
 class EvalTensorBatch:
     def __init__(self, encodings: torch.tensor, ctx_masks: torch.tensor,
                  entity_types: torch.tensor, entity_labels: torch.tensor,
-                 rel_types: torch.tensor, rel_labels:torch.tensor, token_masks: torch.tensor):
+                 rel_types: torch.tensor, rel_labels:torch.tensor, 
+                 token_masks: torch.tensor, start_token_masks: torch.tensor):
         
         self.encodings = encodings
         self.ctx_masks = ctx_masks
@@ -60,6 +64,7 @@ class EvalTensorBatch:
         self.rel_labels = rel_labels
 
         self.token_masks = token_masks
+        self.start_token_masks = start_token_masks
 
     def to(self, device):
         encodings = self.encodings.to(device)
@@ -72,15 +77,17 @@ class EvalTensorBatch:
         rel_labels = self.rel_labels.to(device)
 
         token_masks = self.token_masks.to(device)
+        start_token_masks = self.start_token_masks.to(device)
 
         return EvalTensorBatch(encodings, ctx_masks, entity_types, entity_labels,
-                                rel_types, rel_labels, token_masks)
+                                rel_types, rel_labels, token_masks, start_token_masks)
 
 
 class TrainTensorSample:
     def __init__(self, encoding: torch.tensor, ctx_mask: torch.tensor,
                  entity_types: torch.tensor, entity_labels: torch.tensor, 
-                 rel_types: torch.tensor, rel_labels: torch.tensor, token_masks: torch.tensor):
+                 rel_types: torch.tensor, rel_labels: torch.tensor, 
+                 token_masks: torch.tensor, start_token_masks: torch.tensor):
         self.encoding = encoding
         self.ctx_mask = ctx_mask
         
@@ -91,12 +98,14 @@ class TrainTensorSample:
         self.rel_labels = rel_labels
 
         self.token_masks = token_masks
+        self.start_token_masks = start_token_masks
 
 
 class EvalTensorSample:
     def __init__(self, encoding: torch.tensor, ctx_mask: torch.tensor,
                  entity_types: torch.tensor, entity_labels: torch.tensor, 
-                 rel_types: torch.tensor, rel_labels: torch.tensor, token_masks: torch.tensor):
+                 rel_types: torch.tensor, rel_labels: torch.tensor, 
+                 token_masks: torch.tensor, start_token_masks: torch.tensor):
         self.encoding = encoding
         self.ctx_mask = ctx_mask
         
@@ -107,6 +116,7 @@ class EvalTensorSample:
         self.rel_labels = rel_labels
 
         self.token_masks = token_masks
+        self.start_token_masks = start_token_masks
 
 class Sampler:
     def __init__(self, processes: int, limit: int):
@@ -265,13 +275,12 @@ def _create_train_sample(doc, context_size, shuffle = False):
 
 
     for e in doc.entities:
-        # print(e.phrase, e.tokens)
         entity_spans.append(e.span)
         entity_types.append(e.entity_type)
         entity_labels.append(create_entity_mask(*e.span, context_size).to(torch.long))       
         for i, t in enumerate(e.tokens):
             entity_labels[-1][t.span_start:t.span_end] = e.entity_labels[i].index
-    
+
     if not doc.entities: # no entities included
         entity_types = torch.tensor([], dtype=torch.long)
         entity_labels = torch.zeros(context_size, dtype=torch.long)
@@ -282,6 +291,7 @@ def _create_train_sample(doc, context_size, shuffle = False):
     # positive relations
     rel_spans, rel_types= [], []
     rel_labels = torch.zeros((context_size, context_size), dtype=torch.long)
+
     for rel in doc.relations:
         s1, s2 = rel.head_entity.span, rel.tail_entity.span
         rel_spans.append((s1, s2))
@@ -315,19 +325,22 @@ def _create_train_sample(doc, context_size, shuffle = False):
     # token masks
     tokens = doc.tokens
     token_masks = torch.zeros((len(_encoding), context_size), dtype=torch.bool)
+    start_token_masks = torch.zeros((len(_encoding), context_size), dtype=torch.bool)
 
     # [CLS]
     token_masks[0,0] = 1
 
     for i,t in enumerate(tokens):
         token_masks[i+1, t.span_start:t.span_end] = 1
+        start_token_masks[i+1, t.span_start] = 1
 
     # [SEP]
     token_masks[i+2,t.span_end] = 1  
     
     return TrainTensorSample(encoding=encoding, ctx_mask=ctx_mask, 
-                            entity_types=entity_types, entity_labels=entity_labels,
-                            rel_types=rel_types, rel_labels=rel_labels, token_masks=token_masks)
+                            entity_types=entity_types, entity_labels=entity_labels, 
+                            rel_types=rel_types, rel_labels=rel_labels, 
+                            token_masks=token_masks, start_token_masks=start_token_masks)
 
 
 def _create_eval_sample(doc, context_size):
@@ -336,6 +349,8 @@ def _create_eval_sample(doc, context_size):
 
     # positive entities
     entity_spans, entity_types, entity_labels = [], [], []
+
+
     for e in doc.entities:
         # print(e.phrase, e.tokens)
         entity_spans.append(e.span)
@@ -365,8 +380,11 @@ def _create_eval_sample(doc, context_size):
             for j in range(latter.span[0], latter.span[1]):
                 rel_labels[i][j] = rel.relation_label.index
 
-    rel_types = torch.tensor([r.index for r in rel_types], dtype=torch.long)
-    # rel_labels = torch.tensor(sum(rel_labels, []))
+    if not doc.relations: # no relations included:
+        rel_types = torch.tensor([], dtype=torch.long)
+    else:
+        rel_types = torch.tensor([r.index for r in rel_types], dtype=torch.long)
+
 
     # create tensors
     # token indices
@@ -381,22 +399,23 @@ def _create_eval_sample(doc, context_size):
     # token masks
     tokens = doc.tokens
     token_masks = torch.zeros((len(_encoding), context_size), dtype=torch.bool)
-
+    start_token_masks = torch.zeros((len(_encoding), context_size), dtype=torch.bool)
 
     # [CLS]
     token_masks[0,0] = 1
 
-
     
     for i,t in enumerate(tokens):
         token_masks[i+1, t.span_start:t.span_end] = 1
+        start_token_masks[i+1, t.span_start] = 1
 
     # [SEP]
     token_masks[i+2,t.span_end] = 1           
 
     return EvalTensorSample(encoding=encoding, ctx_mask=ctx_mask, 
                             entity_types=entity_types, entity_labels=entity_labels,
-                            rel_types=rel_types, rel_labels=rel_labels, token_masks=token_masks)
+                            rel_types=rel_types, rel_labels=rel_labels, 
+                            token_masks=token_masks, start_token_masks=start_token_masks)
 
 
 
@@ -411,6 +430,8 @@ def _create_train_batch(samples):
     batch_rel_labels = []
 
     batch_token_masks = []
+    batch_start_token_masks = []
+
 
     for sample in samples:
         encoding = sample.encoding
@@ -426,6 +447,7 @@ def _create_train_batch(samples):
 
         # token masks
         token_masks = sample.token_masks
+        start_token_masks = sample.start_token_masks
 
         batch_encodings.append(encoding)
         batch_ctx_masks.append(ctx_mask)
@@ -436,7 +458,9 @@ def _create_train_batch(samples):
         batch_rel_labels.append(rel_labels)
         batch_entity_labels.append(entity_labels)
 
+
         batch_token_masks.append(token_masks)
+        batch_start_token_masks.append(start_token_masks)
 
     # stack samples
 
@@ -452,10 +476,12 @@ def _create_train_batch(samples):
     batch_entity_labels = util.padded_stack(batch_entity_labels)
 
     batch_token_masks = util.padded_stack(batch_token_masks)
+    batch_start_token_masks = util.padded_stack(batch_start_token_masks)
     
     batch = TrainTensorBatch(encodings=encodings, ctx_masks=ctx_masks, 
                             entity_types=batch_entity_types, entity_labels=batch_entity_labels,
-                            rel_types=batch_rel_types, rel_labels=batch_rel_labels, token_masks=batch_token_masks)
+                            rel_types=batch_rel_types, rel_labels=batch_rel_labels, 
+                            token_masks=batch_token_masks, start_token_masks=batch_start_token_masks)
 
     return batch
 
@@ -471,6 +497,7 @@ def _create_eval_batch(samples):
     batch_rel_labels = []
 
     batch_token_masks = []
+    batch_start_token_masks = []
 
     for sample in samples:
         encoding = sample.encoding
@@ -486,6 +513,7 @@ def _create_eval_batch(samples):
 
         # token masks
         token_masks = sample.token_masks
+        start_token_masks = sample.start_token_masks
 
         batch_encodings.append(encoding)
         batch_ctx_masks.append(ctx_mask)
@@ -497,6 +525,7 @@ def _create_eval_batch(samples):
         batch_entity_labels.append(entity_labels)
 
         batch_token_masks.append(token_masks)
+        batch_start_token_masks.append(start_token_masks)
 
     # stack samples
 
@@ -511,10 +540,12 @@ def _create_eval_batch(samples):
     batch_entity_labels = util.padded_stack(batch_entity_labels)
 
     batch_token_masks = util.padded_stack(batch_token_masks)
+    batch_start_token_masks = util.padded_stack(batch_start_token_masks)
     
     batch = EvalTensorBatch(encodings=encodings, ctx_masks=ctx_masks, 
                             entity_types=batch_entity_types, entity_labels=batch_entity_labels,
-                            rel_types=batch_rel_types, rel_labels=batch_rel_labels, token_masks=batch_token_masks)
+                            rel_types=batch_rel_types, rel_labels=batch_rel_labels, 
+                            token_masks=batch_token_masks, start_token_masks=batch_start_token_masks)
 
     return batch
 
