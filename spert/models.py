@@ -33,7 +33,7 @@ def get_token(h: torch.tensor, x: torch.tensor, token: int):
     return token_h
 
 
-def align_bert_embeddings(h: torch.tensor, token_mask: torch.tensor, cls_repr: torch.tensor):
+def align_bert_embeddings(h: torch.tensor, token_mask: torch.tensor, cls_repr = None):
     """ Align bert token embeddings to word embeddings, masked by token_mask. """
 
     def pick_first(h: torch.tensor, token_mask: torch.tensor):
@@ -92,6 +92,7 @@ class TableF(BertPreTrainedModel):
         self._device = device
         # layers
         self.entity_label_embedding = nn.Embedding(entity_labels , entity_label_embedding)
+        # self.rnn = nn.RNN(config.hidden_size * 2 + entity_label_embedding)
         self.entity_classifier = nn.Linear(config.hidden_size * 2 + entity_label_embedding , entity_labels)
         # sel.crf = torchcrf.CRF(entity_labels)
         self.dropout = nn.Dropout(prop_drop)
@@ -145,23 +146,26 @@ class TableF(BertPreTrainedModel):
 
         # print(curr_repr.shape, masked_repr_pool.shape, prev_embedding.shape)
         # concat them for linear classification.
-        entity_repr = torch.cat([self.dropout(curr_repr), self.dropout(masked_repr_pool), prev_embedding], dim=1)
+        entity_repr = torch.cat([curr_repr, masked_repr_pool, prev_embedding], dim=1)
         
         # dropout.
-        # entity_repr = self.dropout(entity_repr)
+        entity_repr = self.dropout(entity_repr)
 
 
         entity_logits = self.entity_classifier(entity_repr)
 
         return entity_logits
 
-    def _forward_relation(self, h: torch.tensor, entity_logits: torch.tensor):
+    def _forward_relation(self, h: torch.tensor, entity_masks: torch.tensor, entity_logits: torch.tensor):
 
         entity_labels = torch.argmax(entity_logits, dim=2)
+
         # entity_labels = gold_entity[batch].unsqueeze(0)
         entity_label_embeddings = self.entity_label_embedding(entity_labels)
-        rel_embedding = torch.cat([self.dropout(h[1:-1,:].unsqueeze(0).contiguous()), entity_label_embeddings], dim=2)
-        # rel_embedding = self.dropout(rel_embedding)
+        # h = align_bert_embeddings(h, entity_masks)
+        # # print(align_bert_embeddings(h, entity_masks).shape)
+        rel_embedding = torch.cat([h[1:-1].unsqueeze(0).contiguous(), entity_label_embeddings], dim=2)
+        rel_embedding = self.dropout(rel_embedding)
         att, _ = self.attn(rel_embedding, rel_embedding, rel_embedding)
         
         return att.permute(0,2,3,1).contiguous()
@@ -229,7 +233,6 @@ class TableF(BertPreTrainedModel):
         # print(context_mask * encodings, (context_mask * encodings).shape)
         # context_size = encodings.shape[1]
 
-
         all_entity_logits = []
         all_rel_logits = []
 
@@ -242,7 +245,6 @@ class TableF(BertPreTrainedModel):
             
             # align bert token embeddings to word embeddings            
             word_h = align_bert_embeddings(h[batch], token_mask[batch], cls_repr)
-            # print(word_h.shape)
             
 
             # word_h = h[batch]
@@ -285,6 +287,7 @@ class TableF(BertPreTrainedModel):
                 else:
                     entity_masks[prev_i:i+1, prev_i:i+1] = 1     
 
+                
                 entity_logits_batch.append(curr_entity_logits)
 
             curr_entity_logits = torch.stack(entity_logits_batch, dim=1)
@@ -292,7 +295,7 @@ class TableF(BertPreTrainedModel):
             # Relation classification.
             if allow_rel:
 
-                curr_rel_logits = self._forward_relation(word_h, curr_entity_logits)
+                curr_rel_logits = self._forward_relation(word_h, entity_masks, curr_entity_logits)
                 all_rel_logits.append(curr_rel_logits)
                         
         return all_entity_logits, all_rel_logits
@@ -368,15 +371,15 @@ class TableF(BertPreTrainedModel):
 
             # Relation classification.
 
-            curr_rel_logits = self._forward_relation(word_h, curr_entity_logits)
+            curr_rel_logits = self._forward_relation(word_h, entity_masks, curr_entity_logits)
             all_rel_logits.append(curr_rel_logits)
 
         # apply softmax
-        for batch in range(batch_size):
-            # print(all_entity_logits[batch])
-            all_entity_logits[batch] = torch.softmax(all_entity_logits[batch], dim=2)
-            # print("after softmax:", all_entity_logits[batch])
-            all_rel_logits[batch] = torch.softmax(all_rel_logits[batch], dim=3)
+        # for batch in range(batch_size):
+        #     # print(all_entity_logits[batch])
+        #     all_entity_logits[batch] = torch.softmax(all_entity_logits[batch], dim=2)
+        #     # print("after softmax:", all_entity_logits[batch])
+        #     all_rel_logits[batch] = torch.softmax(all_rel_logits[batch], dim=3)
 
         return all_entity_logits, all_rel_logits
 

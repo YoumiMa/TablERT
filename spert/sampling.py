@@ -299,9 +299,16 @@ def _create_train_sample(doc, context_size, shuffle = False):
         # rel_labels[rel.tail_entity.span]
         former = rel.head_entity if s1[0] < s2[0] else rel.tail_entity
         latter = rel.tail_entity if s1[0] < s2[0] else rel.head_entity
+
+        # ## map to all words in an entity.
         for i in range(former.span[0], former.span[1]):
             for j in range(latter.span[0], latter.span[1]):
                 rel_labels[i][j] = rel.relation_label.index
+
+        ### map to last word in an entity.
+        # for i in range(former._tokens[-1].span_start, former._tokens[-1].span_end):
+        #     for j in range(latter._tokens[-1].span_start, latter._tokens[-1].span_end):
+        #         rel_labels[i][j] = rel.relation_label.index        
 
 
     if not doc.relations: # no relations included:
@@ -379,6 +386,10 @@ def _create_eval_sample(doc, context_size):
         for i in range(former.span[0], former.span[1]):
             for j in range(latter.span[0], latter.span[1]):
                 rel_labels[i][j] = rel.relation_label.index
+
+        # for i in range(former._tokens[-1].span_start, former._tokens[-1].span_end):
+        #     for j in range(latter._tokens[-1].span_start, latter._tokens[-1].span_end):
+        #         rel_labels[i][j] = rel.relation_label.index 
 
     if not doc.relations: # no relations included:
         rel_types = torch.tensor([], dtype=torch.long)

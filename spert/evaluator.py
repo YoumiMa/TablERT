@@ -61,7 +61,6 @@ class Evaluator:
             
             entity_clf = batch_entity_clf[i]
 
-
             if self._model_type == 'table_filling':
 
                 rel_clf = batch_rel_clf[i]
@@ -103,7 +102,9 @@ class Evaluator:
             
 
             self._pred_entities.append(pred_entities)
-            self._pred_relations.append(pred_relations)    
+            self._pred_relations.append(pred_relations) 
+            # print("gold:", self._gt_relations)
+            # print("pred:", self._pred_relations)   
 
 
     def update_bio_file_(self, preds: torch.tensor, token_mask: torch.tensor):
@@ -431,6 +432,7 @@ class Evaluator:
                                 pred_entities: List[tuple], token_mask: torch.tensor):
         converted_rels = []
         pred_types = pred_types.fill_diagonal_(0)
+        # print("pred types:", pred_types)
         for i in range(pred_types.shape[-1]):
             for j in range(i, pred_types.shape[-1]):
                 label_idx = pred_types[i,j].float()
@@ -443,6 +445,7 @@ class Evaluator:
                         head_idx = j 
                         tail_idx = i
                     # print(head_idx, tail_idx, label_idx)
+                    # print(token_mask)
                     head_entity = self._find_entity(head_idx + 1, token_mask, pred_entities)
                     # print("head entity:", head_entity)
                     tail_entity = self._find_entity(tail_idx + 1, token_mask, pred_entities)
@@ -503,7 +506,7 @@ class Evaluator:
     def _find_entity(self, idx, token_mask, entities):
         span = token_mask[idx].nonzero().squeeze(0)
         for e in entities:
-            if span[0] == e[0]:
+            if span[-1] == e[1] - 1:
                 return e
         return None
 
