@@ -103,9 +103,11 @@ class SpERTTrainer(BaseTrainer):
                                             cache_dir=self.args.cache_path,
                                             tokenizer= self._tokenizer,
                                             # SpERT model parameters
-                                            relation_labels=input_reader.relation_label_count,
-                                            entity_labels=input_reader.entity_label_count,
+                                            relation_labels= input_reader.relation_label_count,
+                                            entity_labels= input_reader.entity_label_count,
+                                            max_entity_len = input_reader.max_entity_len,
                                             att_hidden = self.args.att_hidden,
+                                            rnn_hidden = self.args.rnn_hidden,
                                             prop_drop=self.args.prop_drop,
                                             entity_label_embedding=self.args.entity_label_embedding,
                                             freeze_transformer=self.args.freeze_transformer,
@@ -221,7 +223,9 @@ class SpERTTrainer(BaseTrainer):
                                             # SpERT model parameters
                                             relation_labels=input_reader.relation_label_count,
                                             entity_labels=input_reader.entity_label_count,
+                                            max_entity_len = input_reader.max_entity_len,
                                             att_hidden = self.args.att_hidden,
+                                            rnn_hidden = self.args.rnn_hidden,
                                             prop_drop=self.args.prop_drop,
                                             entity_label_embedding=self.args.entity_label_embedding,
                                             freeze_transformer=self.args.freeze_transformer,
@@ -298,7 +302,8 @@ class SpERTTrainer(BaseTrainer):
             # print("rel labels:", rel_labels)
             if self.args.model_type == 'table_filling':
                 entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.start_token_masks)
-                entity_logits, rel_logits = model(batch.encodings, batch.ctx_masks, batch.token_masks, start_labels, entity_labels, allow_rel)
+                entity_logits, rel_logits = model(batch.encodings, batch.ctx_masks, 
+                    batch.token_masks, start_labels, entity_labels, batch.entity_masks, allow_rel)
                 # entity_logits = util.beam_repeat(entity_logits, self.args.beam_size)
                 loss = compute_loss.compute(entity_logits, entity_labels, rel_logits, rel_labels) 
             elif self.args.model_type == 'bert_ner':
@@ -355,14 +360,14 @@ class SpERTTrainer(BaseTrainer):
                     entity_clf, rel_clf = model(batch.encodings, batch.ctx_masks, batch.token_masks, 
                     input_reader._start_entity_label, entity_labels, evaluate=True) 
                     loss = compute_loss.compute(entity_clf, entity_labels, rel_clf, rel_labels, is_eval=True)  
-
+                    entity_clf = util.beam_repeat(entity_clf, self.args.beam_size)
+                    # rel_clf = util.beam_repeat(rel_clf, self.args.beam_size)
                 elif self.args.model_type == 'bert_ner':
                     entity_clf, rel_clf = model(batch.encodings, batch.ctx_masks, evaluate=True) 
 
                     entity_labels = batch.entity_labels
                     token_mask = batch.start_token_masks.sum(dim=1)
                     loss = compute_loss.compute(entity_clf, entity_labels, token_mask, is_eval=True) 
-                entity_clf = util.beam_repeat(entity_clf, self.args.beam_size)
                 evaluator.eval_batch(entity_clf, rel_clf, batch, 
                                     input_reader._start_entity_label, input_reader._end_entity_label)
 
@@ -470,6 +475,7 @@ class SpERTTrainer(BaseTrainer):
             self._logger.info("Document count: %s" % d.document_count)
             self._logger.info("Relation count: %s" % d.relation_count)
             self._logger.info("Entity count: %s" % d.entity_count)
+            self._logger.info("Max entity length: %s"% d.max_entity_len)
 
         self._logger.info("Context size: %s" % input_reader.context_size)
 

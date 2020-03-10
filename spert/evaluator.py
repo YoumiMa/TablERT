@@ -64,13 +64,16 @@ class Evaluator:
             if self._model_type == 'table_filling':
 
                 rel_clf = batch_rel_clf[i]
-                ### beam search
-                beam_entity = BeamSearch(entity_clf.shape[2])
-                context_size = entity_clf.shape[1]
-                for j in range(context_size):
-                    beam_entity.advance(entity_clf.squeeze(0)[j])
+                ## beam search
+                # beam_entity = BeamSearch(entity_clf.shape[2])
+                # context_size = entity_clf.shape[1]
+                # for j in range(context_size):
+                #     beam_entity.advance(entity_clf.squeeze(0)[j])
 
-                entity_scores, entity_preds = beam_entity.get_best_path 
+                # entity_scores, entity_preds = beam_entity.get_best_path 
+                entity_scores, entity_preds = entity_clf[:,:,0,:].squeeze(0).max(dim=1)
+
+                entity_preds = entity_preds.squeeze(0)
 
                 pred_entities = self._convert_pred_entities_start(entity_preds, entity_scores, 
                     batch.token_masks[i], start_labels, end_labels)
@@ -78,8 +81,8 @@ class Evaluator:
                 ##### Relation.
                 rel_scores, rel_preds = rel_clf.max(dim=3)
                 # print("scores:", rel_scores)
-                # print("rel preds:", rel_preds)
 
+                # pred_relations = []
                 pred_relations = self._convert_pred_relations_(rel_preds[i], rel_scores[i], 
                                                                 pred_entities, batch.token_masks[i])
             elif self._model_type == 'bert_ner':
@@ -102,9 +105,7 @@ class Evaluator:
             
 
             self._pred_entities.append(pred_entities)
-            self._pred_relations.append(pred_relations) 
-            # print("gold:", self._gt_relations)
-            # print("pred:", self._pred_relations)   
+            self._pred_relations.append(pred_relations)  
 
 
     def update_bio_file_(self, preds: torch.tensor, token_mask: torch.tensor):
@@ -215,14 +216,14 @@ class Evaluator:
 
             # relations
             # without entity types
-            # rel_example = self._convert_example(doc, self._gt_relations[i], self._pred_relations[i],
-            #                                     include_entity_types=False, to_html=self._rel_to_html)
-            # rel_examples.append(rel_example)
+            rel_example = self._convert_example(doc, self._gt_relations[i], self._pred_relations[i],
+                                                include_entity_types=False, to_html=self._rel_to_html)
+            rel_examples.append(rel_example)
 
-            # # with entity types
-            # rel_example_ner = self._convert_example(doc, self._gt_relations[i], self._pred_relations[i],
-            #                                         include_entity_types=True, to_html=self._rel_to_html)
-            # rel_examples_ner.append(rel_example_ner)
+            # with entity types
+            rel_example_ner = self._convert_example(doc, self._gt_relations[i], self._pred_relations[i],
+                                                    include_entity_types=True, to_html=self._rel_to_html)
+            rel_examples_ner.append(rel_example_ner)
 
         label, epoch = self._dataset_label, self._epoch
 

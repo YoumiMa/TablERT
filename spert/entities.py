@@ -273,6 +273,11 @@ class Entity:
     def phrase(self):
         return self._phrase
 
+    @property
+    def len(self):
+        return len(self._tokens)
+    
+
     def __eq__(self, other):
         if isinstance(other, Entity):
             return self._eid == other._eid
@@ -435,6 +440,10 @@ class Dataset:
         self._eid = 0
         self._tid = 0
 
+        # max entity length
+
+        self._max_entity_len = 0
+
     def iterate_documents(self, batch_size, order=None, truncate=False):
         return BatchIterator(self.documents, batch_size, order=order, truncate=truncate)
 
@@ -451,6 +460,8 @@ class Dataset:
         mention = Entity(self._eid, entity_type, entity_labels, tokens, phrase)
         self._entities[self._eid] = mention
         self._eid += 1
+        if mention.len > self._max_entity_len:
+            self._max_entity_len = mention.len
         return mention
 
     def create_relation(self, relation_type, relation_label, head_entity, tail_entity, reverse=False) -> Relation:
@@ -497,3 +508,8 @@ class Dataset:
     @property
     def relation_count(self):
         return len(self._relations)
+
+    @property
+    def max_entity_len(self):
+        return self._max_entity_len
+    

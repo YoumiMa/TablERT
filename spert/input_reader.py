@@ -170,6 +170,11 @@ class BaseInputReader(ABC):
     def entity_type_count(self):
         return len(self._entity_types)
 
+    @property
+    def max_entity_len(self):
+        return max([d.max_entity_len for d in self._datasets.values()])
+    
+
 
     @property
     def vocabulary_size(self):
