@@ -44,6 +44,8 @@ class SpERTLoss(Loss):
                 rel_mask = torch.triu(torch.ones_like(rel_labels[b], dtype=torch.bool), diagonal=1)
                 
                 batch_labels = torch.masked_select(rel_labels[b], rel_mask)
+                if batch_labels.nelement() == 0:
+                    continue
                 batch_logits = batch_logits[:, rel_mask]
                 batch_logits = batch_logits.view(-1, batch_logits.shape[-1])
 
