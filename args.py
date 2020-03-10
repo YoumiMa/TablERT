@@ -37,6 +37,7 @@ def _add_common_args(arg_parser):
     arg_parser.add_argument('--rel_filter_threshold', type=float, default=0.4, help="Filter threshold for relations")
     arg_parser.add_argument('--att_hidden', type=int, default=5, help="Dimensionality of size embedding")
     arg_parser.add_argument('--entity_label_embedding', type=int, default=50, help="Dimensionality of entity label embedding")
+    arg_parser.add_argument('--rnn_hidden', type=int, default=100,  help="Dimensionality of rnn cell output")
     arg_parser.add_argument('--prop_drop', type=float, default=0.1, help="Probability of dropout used in SpERT")
     arg_parser.add_argument('--freeze_transformer', action='store_true', default=False, help="Freeze BERT weights")
 
