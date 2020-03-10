@@ -196,10 +196,10 @@ class TableF(BertPreTrainedModel):
                           entity_logits: torch.tensor, gold_entity: torch.tensor, 
                           is_eval: bool = False):
 
-        # if is_eval:
-        entity_labels = torch.argmax(entity_logits, dim=2)
-        # else:
-            # entity_labels = gold_entity.unsqueeze(0)
+        if is_eval:
+            entity_labels = torch.argmax(entity_logits, dim=2)
+        else:
+            entity_labels = gold_entity.unsqueeze(0)
 
         entity_label_embeddings = self.entity_label_embedding(entity_labels)
 

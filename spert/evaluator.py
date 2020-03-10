@@ -431,33 +431,34 @@ class Evaluator:
     def _convert_pred_relations_(self, pred_types: torch.tensor, pred_scores: torch.tensor, 
                                 pred_entities: List[tuple], token_mask: torch.tensor):
         converted_rels = []
-        pred_types = pred_types.fill_diagonal_(0)
-        # print("pred types:", pred_types)
-        for i in range(pred_types.shape[-1]):
-            for j in range(pred_types.shape[-1]):
-                label_idx = pred_types[i,j].float()
-                if label_idx != 0:    
-                    pred_rel_type = self._input_reader.get_relation_type(label_idx.item())
-                    head_idx = i 
-                    tail_idx = j 
-                    # print(head_idx, tail_idx, label_idx)
-                    # print(token_mask)
-                    head_entity = self._find_entity(head_idx + 1, token_mask, pred_entities)
-                    # print("head entity:", head_entity)
-                    tail_entity = self._find_entity(tail_idx + 1, token_mask, pred_entities)
-                    # print("tail entity:", tail_entity)
-                    if head_entity == None or tail_entity == None:
-                        continue
-                    pred_head_type = head_entity[2]
-                    pred_tail_type = tail_entity[2]
-                    score = pred_scores[i][j].item()
+        pred_types = torch.triu(pred_types, diagonal=1)
+        for i,j in pred_types.nonzero():
+            label_idx = pred_types[i,j].float()
+            pred_rel_type = self._input_reader.get_relation_type(torch.ceil(label_idx/2).item())
+            if label_idx in self._input_reader._right_rel_label: # R-X
+                head_idx = i 
+                tail_idx = j 
+            else: # L-X
+                head_idx = j 
+                tail_idx = i
+            # print(head_idx, tail_idx, label_idx)
+            # print(token_mask)
+            head_entity = self._find_entity(head_idx + 1, token_mask, pred_entities)
+            # print("head entity:", head_entity)
+            tail_entity = self._find_entity(tail_idx + 1, token_mask, pred_entities)
+            # print("tail entity:", tail_entity)
+            if head_entity == None or tail_entity == None:
+                continue
+            pred_head_type = head_entity[2]
+            pred_tail_type = tail_entity[2]
+            score = pred_scores[i][j].item()
 
-                    head_start, head_end = head_entity[0], head_entity[1]
-                    tail_start, tail_end = tail_entity[0], tail_entity[1]
-                    converted_rel = ((head_start, head_end, pred_head_type),
-                                     (tail_start, tail_end, pred_tail_type), pred_rel_type, score)
+            head_start, head_end = head_entity[0], head_entity[1]
+            tail_start, tail_end = tail_entity[0], tail_entity[1]
+            converted_rel = ((head_start, head_end, pred_head_type),
+                             (tail_start, tail_end, pred_tail_type), pred_rel_type, score)
 
-                    converted_rels.append(converted_rel)
+            converted_rels.append(converted_rel)
         return converted_rels
 
 
