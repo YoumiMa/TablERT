@@ -96,9 +96,9 @@ class TableF(BertPreTrainedModel):
         self.entity_classifier = nn.Linear(config.hidden_size * 2 + entity_label_embedding , entity_labels)
        # sel.crf = torchcrf.CRF(entity_labels)
         self.dropout = nn.Dropout(prop_drop)
-        self.rnn = nn.RNN(config.hidden_size, rnn_hidden)
+        # self.rnn = nn.RNN(config.hidden_size, rnn_hidden, bidirectional=True)
         # self.rnn = nn.RNN(config.hidden_size, rnn_hidden)
-        self.attn = MultiHeadAttention(relation_labels, rnn_hidden + entity_label_embedding, att_hidden , device)
+        self.attn = MultiHeadAttention(relation_labels, config.hidden_size + entity_label_embedding, att_hidden , device)
 
         self._relation_labels = relation_labels
         self._entity_labels = entity_labels
@@ -211,12 +211,12 @@ class TableF(BertPreTrainedModel):
         # size embedding.
         # size_embeddings = self.size_embedding(masks_no_cls_rep.to(torch.long).sum(dim=0)).unsqueeze(0)
         # rnn.
-        entity_repr_pool = entity_repr_pool.unsqueeze(0)
-        rnn_initial = torch.zeros((entity_repr_pool.shape[0], entity_repr_pool.shape[1], self._rnn_hidden_dim), dtype=torch.float).to(self._device)
-        rnn_output , hm = self.rnn(entity_repr_pool - 1, rnn_initial)
-        rel_embedding = torch.cat([rnn_output, entity_label_embeddings], dim=2)
+        # entity_repr_pool = entity_repr_pool.unsqueeze(0)
+        # rnn_initial = torch.zeros((2*entity_repr_pool.shape[0], entity_repr_pool.shape[1], self._rnn_hidden_dim), dtype=torch.float).to(self._device)
+        # rnn_output , hm = self.rnn(entity_repr_pool - 1, rnn_initial)
+        # rel_embedding = torch.cat([rnn_output, entity_label_embeddings], dim=2)
         
-        # rel_embedding = torch.cat([entity_repr_pool.unsqueeze(0) - 1, entity_label_embeddings], dim=2)
+        rel_embedding = torch.cat([entity_repr_pool.unsqueeze(0) - 1, entity_label_embeddings], dim=2)
         rel_embedding = self.dropout(rel_embedding)
         att, _ = self.attn(rel_embedding, rel_embedding, rel_embedding)
         

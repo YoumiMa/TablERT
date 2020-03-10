@@ -311,8 +311,8 @@ def _create_train_sample(doc, context_size, shuffle = False):
         rel_spans.append((s1, s2))
         rel_types.append(rel.relation_type)
         # rel_labels[rel.tail_entity.span]
-        former = rel.head_entity if s1[0] < s2[0] else rel.tail_entity
-        latter = rel.tail_entity if s1[0] < s2[0] else rel.head_entity
+        former = rel.head_entity
+        latter = rel.tail_entity 
 
         # ## map to all words in an entity.
         for i in range(former.span[0], former.span[1]):
@@ -399,8 +399,8 @@ def _create_eval_sample(doc, context_size):
         rel_spans.append((s1, s2))
         rel_types.append(rel.relation_type)
         # rel_labels[rel.tail_entity.span]
-        former = rel.head_entity if s1[0] < s2[0] else rel.tail_entity
-        latter = rel.tail_entity if s1[0] < s2[0] else rel.head_entity
+        former = rel.head_entity
+        latter = rel.tail_entity
         for i in range(former.span[0], former.span[1]):
             for j in range(latter.span[0], latter.span[1]):
                 rel_labels[i][j] = rel.relation_label.index

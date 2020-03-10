@@ -71,9 +71,9 @@ class Evaluator:
                 #     beam_entity.advance(entity_clf.squeeze(0)[j])
 
                 # entity_scores, entity_preds = beam_entity.get_best_path 
-                entity_scores, entity_preds = entity_clf[:,:,0,:].squeeze(0).max(dim=1)
+                entity_scores, entity_preds = entity_clf.squeeze(0).max(dim=1)
 
-                entity_preds = entity_preds.squeeze(0)
+                # entity_preds = entity_preds.squeeze(0)
 
                 pred_entities = self._convert_pred_entities_start(entity_preds, entity_scores, 
                     batch.token_masks[i], start_labels, end_labels)
@@ -314,7 +314,6 @@ class Evaluator:
                                 start_labels: List[int], end_labels: List[int]):
         #### for word-level.
         converted_preds = []
-        
         encoding_length = token_mask.shape[0]
         curr_type = 0
         start = 1
@@ -435,16 +434,12 @@ class Evaluator:
         pred_types = pred_types.fill_diagonal_(0)
         # print("pred types:", pred_types)
         for i in range(pred_types.shape[-1]):
-            for j in range(i, pred_types.shape[-1]):
+            for j in range(pred_types.shape[-1]):
                 label_idx = pred_types[i,j].float()
                 if label_idx != 0:    
-                    pred_rel_type = self._input_reader.get_relation_type(torch.ceil(label_idx/2).item())
-                    if label_idx in self._input_reader._right_rel_label: # R-X
-                        head_idx = i 
-                        tail_idx = j 
-                    else: # L-X
-                        head_idx = j 
-                        tail_idx = i
+                    pred_rel_type = self._input_reader.get_relation_type(label_idx.item())
+                    head_idx = i 
+                    tail_idx = j 
                     # print(head_idx, tail_idx, label_idx)
                     # print(token_mask)
                     head_entity = self._find_entity(head_idx + 1, token_mask, pred_entities)

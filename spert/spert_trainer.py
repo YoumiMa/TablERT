@@ -360,7 +360,7 @@ class SpERTTrainer(BaseTrainer):
                     entity_clf, rel_clf = model(batch.encodings, batch.ctx_masks, batch.token_masks, 
                     input_reader._start_entity_label, entity_labels, evaluate=True) 
                     loss = compute_loss.compute(entity_clf, entity_labels, rel_clf, rel_labels, is_eval=True)  
-                    entity_clf = util.beam_repeat(entity_clf, self.args.beam_size)
+                    # entity_clf = util.beam_repeat(entity_clf, self.args.beam_size)
                     # rel_clf = util.beam_repeat(rel_clf, self.args.beam_size)
                 elif self.args.model_type == 'bert_ner':
                     entity_clf, rel_clf = model(batch.encodings, batch.ctx_masks, evaluate=True) 

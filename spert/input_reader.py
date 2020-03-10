@@ -12,7 +12,6 @@ from spert.entities import Dataset, EntityLabel, RelationLabel, EntityType, Rela
 
 
 E_PREFIX = ['B-', 'I-', 'L-', 'U-']
-R_PREFIX = ['R-', 'L-'] # relation Pointing to left/right
 
 class BaseInputReader(ABC):
     def __init__(self, types_path: str, bio_file_path: str, tokenizer: BertTokenizer, logger: Logger = None):
@@ -77,13 +76,10 @@ class BaseInputReader(ABC):
         # specified relation labels
         for i, (key, v) in enumerate(types['relations'].items()):
             relation_labels = []
-            for j, pre in enumerate(R_PREFIX):
-                relation_label = RelationLabel(key, 2 * i + j + 1, pre + v['short'], pre + v['verbose'], v['symmetric'])
-                self._relation_labels[pre + key] = relation_label
-                self._idx2relation_label[2 * i + j + 1] = relation_label
-                relation_labels.append(relation_label)
-                if pre == 'R-':
-                    self._right_rel_label.append(2 * i + j + 1)
+            relation_label = RelationLabel(key, i+1, v['short'], v['verbose'], v['symmetric'])
+            self._relation_labels[key] = relation_label
+            self._idx2relation_label[i+1] = relation_label
+            relation_labels.append(relation_label)
             relation_type = RelationType(relation_labels, i+1, v['short'], v['verbose'])
             self._relation_types[key] = relation_type
             self._idx2relation_type[i+1] = relation_type
@@ -284,10 +280,7 @@ class JsonInputReader(BaseInputReader):
             head_idx = jrelation['head']
             tail_idx = jrelation['tail']
 
-            if head_idx < tail_idx:
-                relation_label = self._relation_labels['R-' + jrelation['type']]
-            else:
-                relation_label = self._relation_labels['L-' + jrelation['type']]
+            relation_label = self._relation_labels[jrelation['type']]
             
             # print([e.phrase for e in entities],head_idx, tail_idx)
             # create relation

@@ -30,7 +30,7 @@ class SpERTLoss(Loss):
             # batch_entities = entity_labels[b][1:1+batch_logits.shape[1]]
             batch_entities = entity_labels[b]
             context_size = batch_entities.shape[-1]
-            # print("labels:",s batch_entities)
+            # print("labels:", batch_entities)
             # print("pred:", batch_logits.argmax(dim=2))
             # print(batch_logits.squeeze(0).shape)
             # print(batch_entities.shape)
@@ -41,10 +41,9 @@ class SpERTLoss(Loss):
         if rel_logits != [] and rel_labels != []:
 
             for b, batch_logits in enumerate(rel_logits):
-                rel_mask = torch.triu(torch.ones_like(rel_labels[b], dtype=torch.bool), diagonal=1)
-                
-                batch_labels = torch.masked_select(rel_labels[b], rel_mask)
-                batch_logits = batch_logits[:, rel_mask]
+                # rel_mask = torch.triu(torch.ones_like(rel_labels[b], dtype=torch.bool), diagonal=1)
+
+                batch_labels = rel_labels[b].reshape(-1)
                 batch_logits = batch_logits.view(-1, batch_logits.shape[-1])
 
                 # print("rel labels:", batch_labels)
