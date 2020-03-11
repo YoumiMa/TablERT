@@ -30,11 +30,12 @@ class SpERTLoss(Loss):
             # batch_entities = entity_labels[b][1:1+batch_logits.shape[1]]
             batch_entities = entity_labels[b]
             # context_size = batch_entities.shape[-1]
-            # print("labels:", batch_entities)
-            # print("pred:", batch_logits.argmax(dim=2))
-            # print(batch_logits.squeeze(0).shape)
+#             print("ent labels:", batch_entities)
+#             print("ent pred:", batch_logits.argmax(dim=2))
+#             print(batch_logits.squeeze(0).shape)
             # print(batch_entities.shape)
             loss = self._entity_criterion(batch_logits.squeeze(0), batch_entities)
+#             print("ent loss:", loss)
             entity_loss += loss.sum()
 
 
@@ -50,8 +51,8 @@ class SpERTLoss(Loss):
                 batch_logits = batch_logits.view(-1, batch_logits.shape[-1])
 
                 # print("rel labels:", batch_labels)
-                # print("pred:", batch_logits.argmax(dim=1))
-                # print("labels:", batch_labels)
+#                 print("rel pred:", batch_logits.argmax(dim=1))
+#                 print("rel labels:", batch_labels)
                 # local_scores = batch_logits[torch.arange(batch_labels.shape[0]), batch_labels]
                 # print("local scores:", local_scores)
                 # beam_scores, preds = batch_logits.topk(k=beam.get_beam_size, dim=1, largest=True, sorted=True)
@@ -69,7 +70,7 @@ class SpERTLoss(Loss):
                 rel_loss += batch_loss.sum() 
 
 
-        # print("entity loss:", entity_loss, "rel loss:", rel_loss)    
+#         print("entity loss:", entity_loss, "rel loss:", rel_loss)    
         train_loss = entity_loss + rel_loss
         
         if not is_eval:
@@ -77,7 +78,7 @@ class SpERTLoss(Loss):
             torch.nn.utils.clip_grad_norm_(self._model.parameters(), self._max_grad_norm)
             self._optimizer.step()
             self._scheduler.step()
-            # self._model.zero_grad()
+#             self._model.zero_grad()
         return torch.tensor([train_loss.item(), entity_loss.item(), rel_loss.item()])
 
 

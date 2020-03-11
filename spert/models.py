@@ -91,7 +91,7 @@ class TableF(BertPreTrainedModel):
         self._tokenizer = tokenizer
         self._device = device
         # layers
-        self.size_embedding = nn.Embedding(max_entity_len + 1, 25)
+        self.size_embedding = nn.Embedding(11, 25)
         self.entity_label_embedding = nn.Embedding(entity_labels , entity_label_embedding)
         self.entity_classifier = nn.Linear(config.hidden_size * 2 + entity_label_embedding , entity_labels)
        # sel.crf = torchcrf.CRF(entity_labels)
@@ -196,10 +196,10 @@ class TableF(BertPreTrainedModel):
                           entity_logits: torch.tensor, gold_entity: torch.tensor, 
                           is_eval: bool = False):
 
-        if is_eval:
-            entity_labels = torch.argmax(entity_logits, dim=2)
-        else:
-            entity_labels = gold_entity.unsqueeze(0)
+#         if is_eval:
+        entity_labels = torch.argmax(entity_logits, dim=2)
+#         else:
+#             entity_labels = gold_entity.unsqueeze(0)
 
         entity_label_embeddings = self.entity_label_embedding(entity_labels)
 
@@ -327,13 +327,15 @@ class TableF(BertPreTrainedModel):
             for i in range(num_steps): # no [CLS], no [SEP] 
 
                 # curr word repr.
-
+#                 print("i:", i, "prev_label:", prev_label)
                 curr_word_repr = curr_word_reprs[i]
                 # mask from previous entity token until current position.
                 # prev_mask = self._get_prev_mask_(prev_i, i, context_mask[batch])
                 prev_mask = self._get_prev_mask(prev_i, i + 1, num_steps + 2).to(self._device)
+#                 print("prev mask:", prev_mask)
                 # prvious label embedding.
                 prev_label_embedding = self.entity_label_embedding(prev_label)
+#                 print("prev label embedding:", prev_label_embedding)
                 
                 prev_entity = word_h_pooled * prev_mask.unsqueeze(-1)
                 prev_entity_pooled = prev_entity.max(dim=0)[0]
@@ -346,7 +348,7 @@ class TableF(BertPreTrainedModel):
                 # curr_entity_logits = self.entity_classifier(rnn_output)
 
                 curr_label = torch.argmax(curr_entity_logits[:, -1, :])
-                # curr_label = gt_entity[batch][i]
+#                 curr_label = gold_entity[batch][i]
              
                 if curr_label in start_labels:
                     prev_i = i + 1

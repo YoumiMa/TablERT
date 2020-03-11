@@ -74,17 +74,19 @@ class Evaluator:
                 entity_scores, entity_preds = entity_clf.squeeze(0).max(dim=1)
 
                 # entity_preds = entity_preds.squeeze(0)
-
+#                 print(entity_clf)
                 pred_entities = self._convert_pred_entities_start(entity_preds, entity_scores, 
                     batch.token_masks[i], start_labels, end_labels)
 
                 ##### Relation.
-                rel_scores, rel_preds = rel_clf.max(dim=3)
-                # print("scores:", rel_scores)
+                rel_scores, rel_preds = rel_clf.squeeze(0).max(dim=2)
+#                 print("rel_clf:", rel_clf.shape)
+#                 print("preds:", rel_preds.shape)
+#                 print("scores:", rel_scores.shape)
 
-                # pred_relations = []
-                pred_relations = self._convert_pred_relations_(rel_preds[i], rel_scores[i], 
-                                                                pred_entities, batch.token_masks[i])
+                pred_relations = []
+#                 pred_relations = self._convert_pred_relations_(rel_preds, rel_scores, 
+#                                                                 pred_entities, batch.token_masks[i])
             elif self._model_type == 'bert_ner':
 
                 entity_scores, entity_preds = torch.max(entity_clf, dim=1)
