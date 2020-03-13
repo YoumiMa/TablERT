@@ -38,7 +38,7 @@ class MultiHeadAttention(nn.Module):
         K = K.view(batch_size, -1, self.n_heads, self.hid_dim).permute(0, 2, 1, 3)
         # V = V.view(batch_size, -1, self.n_heads, self.hid_dim).permute(0, 2, 1, 3)
 
-        energy = torch.matmul(Q, K.permute(0,1,3,2))
+        energy = torch.matmul(Q, K.permute(0,1,3,2)) 
 
         if mask is not None:
             energy = energy.masked_fill(mask==0, -1e10)

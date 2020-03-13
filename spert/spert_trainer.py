@@ -302,11 +302,11 @@ class SpERTTrainer(BaseTrainer):
 
             # print("rel labels:", rel_labels)
             if self.args.model_type == 'table_filling':
-                # entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.start_token_masks)
+                entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.start_token_masks)
                 entity_logits, rel_logits = model(batch.encodings, batch.ctx_masks, 
-                    batch.token_masks, start_labels, batch.entity_labels, batch.entity_masks, allow_rel)
+                    batch.token_masks, start_labels, entity_labels, batch.entity_masks, allow_rel)
                 # entity_logits = util.beam_repeat(entity_logits, self.args.beam_size)
-                loss = compute_loss.compute(entity_logits, batch.entity_labels, rel_logits, batch.rel_labels, batch.start_token_masks) 
+                loss = compute_loss.compute(entity_logits, entity_labels, rel_logits, rel_labels, batch.start_token_masks) 
             elif self.args.model_type == 'bert_ner':
                 entity_logits, rel_logits = model(batch.encodings, batch.ctx_masks)
                 entity_labels = batch.entity_labels
