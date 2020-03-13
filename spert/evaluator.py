@@ -63,7 +63,7 @@ class Evaluator:
 
             if self._model_type == 'table_filling':
 
-                rel_clf = batch_rel_clf[i]
+                rel_clf = torch.softmax(batch_rel_clf[i], dim=1)
                 ## beam search
                 # beam_entity = BeamSearch(entity_clf.shape[2])
                 # context_size = entity_clf.shape[1]
@@ -79,14 +79,14 @@ class Evaluator:
                     batch.token_masks[i], start_labels, end_labels)
 
                 ##### Relation.
-                rel_scores, rel_preds = rel_clf.squeeze(0).max(dim=2)
-#                 print("rel_clf:", rel_clf.shape)
-#                 print("preds:", rel_preds.shape)
-#                 print("scores:", rel_scores.shape)
+                rel_scores, rel_preds = rel_clf.squeeze(0).max(dim=0)
+                # print("rel_clf:", rel_clf.shape)
+                # print("preds:", rel_preds.shape)
+                # print("scores:", rel_scores.shape)
 
-                pred_relations = []
-#                 pred_relations = self._convert_pred_relations_(rel_preds, rel_scores, 
-#                                                                 pred_entities, batch.token_masks[i])
+                # pred_relations = []
+                pred_relations = self._convert_pred_relations_(rel_preds, rel_scores, 
+                                                                pred_entities, batch.token_masks[i])
             elif self._model_type == 'bert_ner':
 
                 entity_scores, entity_preds = torch.max(entity_clf, dim=1)

@@ -18,7 +18,7 @@ class MultiHeadAttention(nn.Module):
 
         self.w_q = nn.Linear(input_dim, hid_dim * n_heads)
         self.w_k = nn.Linear(input_dim, hid_dim * n_heads)
-        self.w_v = nn.Linear(input_dim, hid_dim * n_heads)
+        # self.w_v = nn.Linear(input_dim, hid_dim * n_heads)
 
 
         self.scale = torch.sqrt(torch.FloatTensor([hid_dim])).to(device)
@@ -32,13 +32,13 @@ class MultiHeadAttention(nn.Module):
 
         Q = self.w_q(query)
         K = self.w_k(key)
-        V = self.w_v(value)
+        # V = self.w_v(value)
 
         Q = Q.view(batch_size, -1, self.n_heads, self.hid_dim).permute(0, 2, 1, 3)
         K = K.view(batch_size, -1, self.n_heads, self.hid_dim).permute(0, 2, 1, 3)
-        V = V.view(batch_size, -1, self.n_heads, self.hid_dim).permute(0, 2, 1, 3)
+        # V = V.view(batch_size, -1, self.n_heads, self.hid_dim).permute(0, 2, 1, 3)
 
-        energy = torch.matmul(Q, K.permute(0,1,3,2))/self.scale
+        energy = torch.matmul(Q, K.permute(0,1,3,2))
 
         if mask is not None:
             energy = energy.masked_fill(mask==0, -1e10)
@@ -46,12 +46,12 @@ class MultiHeadAttention(nn.Module):
         # attention = self.softmax(energy)
         attention = energy
 
-        x = torch.matmul(attention, V)
+        # x = torch.matmul(attention, V)
 
 
-        x = x.permute(0, 2, 1, 3).contiguous()
-        x = x.view(batch_size, -1, self.hid_dim * self.n_heads)
+        # x = x.permute(0, 2, 1, 3).contiguous()
+        # x = x.view(batch_size, -1, self.hid_dim * self.n_heads)
 
 
-        return attention, x
+        return attention
 

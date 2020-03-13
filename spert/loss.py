@@ -21,53 +21,49 @@ class SpERTLoss(Loss):
         self._device = model._device
 
 
-    def compute(self, entity_logits, entity_labels, rel_logits, rel_labels, is_eval=False):
+    def compute(self, entity_logits, entity_labels, rel_logits, rel_labels, token_masks, is_eval=False):
         # entity loss
 
         entity_loss = torch.tensor(0., dtype=torch.float).to(self._device)
         rel_loss = torch.tensor(0., dtype=torch.float).to(self._device)
-        for b, batch_logits in enumerate(entity_logits):
-            # batch_entities = entity_labels[b][1:1+batch_logits.shape[1]]
-            batch_entities = entity_labels[b]
-            # context_size = batch_entities.shape[-1]
-#             print("ent labels:", batch_entities)
-#             print("ent pred:", batch_logits.argmax(dim=2))
-#             print(batch_logits.squeeze(0).shape)
-            # print(batch_entities.shape)
-            loss = self._entity_criterion(batch_logits.squeeze(0), batch_entities)
-#             print("ent loss:", loss)
+
+        if not is_eval:
+            entity_labels = torch.masked_select(entity_labels, token_masks.sum(dim=1).bool())
+            entity_logits = entity_logits[token_masks.sum(dim=2).bool()[:, :-1]]
+            # print("entity labels:", entity_labels)
+            # print("preds:", entity_logits.argmax(dim=1))
+            loss =  self._entity_criterion(entity_logits, entity_labels)
             entity_loss += loss.sum()
 
+            if rel_logits.nelement() != 0 and rel_labels.nelement() != 0:
+                encoding_len = rel_logits.shape[-1]
+                rel_token_masks = token_masks.sum(dim=1).unsqueeze(1).repeat(1, token_masks.shape[1],1)
+                loss = self._rel_criterion(rel_logits, rel_labels[:, :encoding_len, :encoding_len])
+                loss = loss * rel_token_masks[:, :encoding_len, :encoding_len]
+                rel_mask = torch.triu(torch.ones_like(loss, dtype=torch.bool), diagonal=1)
+                # print("labels:", rel_labels[:, :-1, :-1] * rel_token_masks[:, :-1, :-1] * rel_mask)
+                # print("pred:", rel_logits.argmax(dim=1)  * rel_token_masks[:, :-1, :-1] * rel_mask)
+                masked_loss = torch.masked_select(loss, rel_mask)
+                rel_loss += masked_loss.sum()
 
-        if rel_logits != [] and rel_labels != []:
 
-            for b, batch_logits in enumerate(rel_logits):
-                rel_mask = torch.triu(torch.ones_like(rel_labels[b], dtype=torch.bool), diagonal=1)
-                
-                batch_labels = torch.masked_select(rel_labels[b], rel_mask)
-                if batch_labels.nelement() == 0:
-                    continue
-                batch_logits = batch_logits[:, rel_mask]
-                batch_logits = batch_logits.view(-1, batch_logits.shape[-1])
+        else:
+            for b, batch_logits in enumerate(entity_logits):
+                batch_entities = entity_labels[b]
+                loss = self._entity_criterion(batch_logits.squeeze(0), batch_entities)
+    #             print("ent loss:", loss)
+                entity_loss += loss.sum()
 
-                # print("rel labels:", batch_labels)
-#                 print("rel pred:", batch_logits.argmax(dim=1))
-#                 print("rel labels:", batch_labels)
-                # local_scores = batch_logits[torch.arange(batch_labels.shape[0]), batch_labels]
-                # print("local scores:", local_scores)
-                # beam_scores, preds = batch_logits.topk(k=beam.get_beam_size, dim=1, largest=True, sorted=True)
-                # print("beam scores", beam_scores)
-                # gold_in_beam = (preds == batch_labels.unsqueeze(1).repeat(1,beam.get_beam_size)).sum(dim=1)
-                # wrong_preds = (gold_in_beam == 0).nonzero()
-                # print("wrong preds:", wrong_preds)
+            if rel_logits != [] and rel_labels != []:
 
-                # p = batch_labels.shape[-1] if wrong_preds.nelement() == 0 else wrong_preds[-1].item()
-
-                # rel_loss += - sum(local_scores[:p+1]) + torch.logsumexp(beam_scores[:p+1].sum(dim=0), dim=0)
-                # print("rel loss:", rel_loss, "pos:",sum(local_scores[:p+1]), "neg:",  torch.logsumexp(beam_scores[:p+1].sum(dim=0), dim=0))
-
-                batch_loss = self._rel_criterion(batch_logits, batch_labels)
-                rel_loss += batch_loss.sum() 
+                for b, batch_logits in enumerate(rel_logits):
+                    rel_mask = torch.triu(torch.ones_like(rel_labels[b], dtype=torch.bool), diagonal=1)
+                    
+                    batch_labels = rel_labels[b] * rel_mask
+                    if batch_labels.nelement() == 0:
+                        continue
+                    batch_loss = self._rel_criterion(batch_logits, batch_labels.unsqueeze(0))
+                    rel_loss += batch_loss.sum() 
 
 
 #         print("entity loss:", entity_loss, "rel loss:", rel_loss)    

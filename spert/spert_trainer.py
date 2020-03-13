@@ -53,7 +53,6 @@ class SpERTTrainer(BaseTrainer):
         self._tokenizer = BertTokenizer.from_pretrained(args.tokenizer_path,
                                                         do_lower_case=args.lowercase,
                                                         cache_dir=args.cache_path)
-
         # path to NER evalution output of BIO tagging scheme.
 
         self._bio_file_path = args.bio_file_path
@@ -85,6 +84,8 @@ class SpERTTrainer(BaseTrainer):
         self._log_datasets(input_reader)
 
         train_dataset = input_reader.get_dataset(train_label)
+
+        # print("docs:", train_dataset.documents)
         train_sample_count = train_dataset.document_count
         updates_epoch = train_sample_count // args.train_batch_size
         updates_total = updates_epoch * args.epochs
@@ -301,11 +302,11 @@ class SpERTTrainer(BaseTrainer):
 
             # print("rel labels:", rel_labels)
             if self.args.model_type == 'table_filling':
-                entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.start_token_masks)
+                # entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.start_token_masks)
                 entity_logits, rel_logits = model(batch.encodings, batch.ctx_masks, 
-                    batch.token_masks, start_labels, entity_labels, batch.entity_masks, allow_rel)
+                    batch.token_masks, start_labels, batch.entity_labels, batch.entity_masks, allow_rel)
                 # entity_logits = util.beam_repeat(entity_logits, self.args.beam_size)
-                loss = compute_loss.compute(entity_logits, entity_labels, rel_logits, rel_labels) 
+                loss = compute_loss.compute(entity_logits, batch.entity_labels, rel_logits, batch.rel_labels, batch.start_token_masks) 
             elif self.args.model_type == 'bert_ner':
                 entity_logits, rel_logits = model(batch.encodings, batch.ctx_masks)
                 entity_labels = batch.entity_labels
@@ -359,7 +360,7 @@ class SpERTTrainer(BaseTrainer):
                     entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.start_token_masks)
                     entity_clf, rel_clf = model(batch.encodings, batch.ctx_masks, batch.token_masks, 
                     input_reader._start_entity_label, entity_labels, evaluate=True) 
-                    loss = compute_loss.compute(entity_clf, entity_labels, rel_clf, rel_labels, is_eval=True)  
+                    loss = compute_loss.compute(entity_clf, entity_labels, rel_clf, rel_labels, batch.start_token_masks, is_eval=True)  
                     # entity_clf = util.beam_repeat(entity_clf, self.args.beam_size)
                     # rel_clf = util.beam_repeat(rel_clf, self.args.beam_size)
                 elif self.args.model_type == 'bert_ner':

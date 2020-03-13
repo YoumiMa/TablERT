@@ -353,7 +353,8 @@ class Relation:
 
 
 class Document:
-    def __init__(self, doc_id: int, tokens: List[Token], entities: List[Entity], relations: List[Relation],
+    def __init__(self, doc_id: int, tokens: List[Token], 
+                entities: List[Entity], relations: List[Relation],
                  encoding: List[int]):
         self._doc_id = doc_id  # ID within the corresponding dataset
 
