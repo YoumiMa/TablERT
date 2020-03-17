@@ -11,7 +11,7 @@ from spert import util
 from spert.entities import Dataset, EntityLabel, RelationLabel, EntityType, RelationType, Entity, Relation, Document
 
 
-E_PREFIX = ['B-', 'I-', 'L-', 'U-']
+E_PREFIX = ['B-', 'U-', 'I-', 'L-']
 R_PREFIX = ['R-', 'L-'] # relation Pointing to left/right
 
 class BaseInputReader(ABC):

@@ -153,7 +153,7 @@ def padded_stack(tensors, padding=0):
     stacked = torch.stack(padded_tensors)
     return stacked
 
-def beam_repeat(tensors, beam_size=3):
+def beam_repeat(tensor, beam_size=3):
 
     return [t.unsqueeze(2).repeat(1, 1, beam_size, 1) for t in tensors]
 

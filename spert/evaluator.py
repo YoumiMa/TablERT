@@ -50,43 +50,37 @@ class Evaluator:
         self._convert_gt(self._dataset.documents)
 
 
-    def eval_batch(self, batch_entity_clf: List[torch.tensor], 
+    def eval_batch(self, batch_entity_preds: List[torch.tensor], 
+                    batch_entity_scores: List[torch.tensor],
                     batch_rel_clf: List[torch.tensor],
-                   batch: EvalTensorBatch,
-                   start_labels: List[int], end_labels: List[int]):
-        batch_size = len(batch_entity_clf)
+                   batch: EvalTensorBatch, gold_labels: List[int]):
+        batch_size = len(batch_entity_preds)
 
         for i in range(batch_size):
             # get model predictions for sample
-            
-            entity_clf = batch_entity_clf[i]
+
 
             if self._model_type == 'table_filling':
 
+                entity_preds = batch_entity_preds[i]
+                entity_scores = batch_entity_scores[i]
                 rel_clf = torch.softmax(batch_rel_clf[i], dim=1)
-                ## beam search
-                # beam_entity = BeamSearch(entity_clf.shape[2])
-                # context_size = entity_clf.shape[1]
-                # for j in range(context_size):
-                #     beam_entity.advance(entity_clf.squeeze(0)[j])
 
-                # entity_scores, entity_preds = beam_entity.get_best_path 
-                entity_scores, entity_preds = entity_clf.squeeze(0).max(dim=1)
 
-                # entity_preds = entity_preds.squeeze(0)
-#                 print(entity_clf)
                 pred_entities = self._convert_pred_entities_start(entity_preds, entity_scores, 
-                    batch.token_masks[i], start_labels, end_labels)
-
+                    batch.token_masks[i])
+                # print(pred_entities)
                 ##### Relation.
                 rel_scores, rel_preds = rel_clf.squeeze(0).max(dim=0)
                 # print("rel_clf:", rel_clf.shape)
-                # print("preds:", rel_preds.shape)
+                # print("preds:", rel_preds)
                 # print("scores:", rel_scores.shape)
 
                 # pred_relations = []
                 pred_relations = self._convert_pred_relations_(rel_preds, rel_scores, 
                                                                 pred_entities, batch.token_masks[i])
+                # print("gold:", self._gt_relations)
+                # print("pred:", pred_relations)
             elif self._model_type == 'bert_ner':
 
                 entity_scores, entity_preds = torch.max(entity_clf, dim=1)
@@ -312,8 +306,7 @@ class Evaluator:
 
 
     def _convert_pred_entities_start(self, pred_types: torch.tensor, pred_scores: torch.tensor, 
-                                token_mask: torch.tensor, 
-                                start_labels: List[int], end_labels: List[int]):
+                                token_mask: torch.tensor):
         #### for word-level.
         converted_preds = []
         encoding_length = token_mask.shape[0]
@@ -324,11 +317,13 @@ class Evaluator:
             type_idx = pred_types[i].item()
             score = pred_scores[i].item()
             
-            if type_idx in start_labels and curr_type != 0:
+            is_start = type_idx % 4 == 1 or type_idx % 4 == 2 or type_idx == 0
+            
+            if is_start and curr_type != 0:
 
                 end = curr_token[0].item() + 1
                 converted_pred = (start, end, entity_type, score)
-                    # print(i, "appended:", converted_pred)
+                # print(i, "appended:", converted_pred)
                 converted_preds.append(converted_pred)                
                 start = curr_token[0].item() + 1              
 

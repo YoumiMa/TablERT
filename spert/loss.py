@@ -34,20 +34,25 @@ class SpERTLoss(Loss):
             entity_loss += loss.sum()
 
         if rel_logits != [] and rel_labels != []:
-
             for b, batch_logits in enumerate(rel_logits):
-                rel_mask = torch.triu(torch.ones_like(rel_labels[b], dtype=torch.bool), diagonal=1)
-                
-                batch_labels = rel_labels[b] * rel_mask
+                batch_labels = rel_labels[b]
                 if batch_labels.nelement() == 0:
                     continue
                 batch_loss = self._rel_criterion(batch_logits, batch_labels.unsqueeze(0))
-                # print("eval loss:", batch_loss.sum())
-                rel_loss += batch_loss.sum() 
+
+                entity_pred = entity_logits[b].argmax(dim=2).squeeze(0)
+                # is_end = (entity_pred % 4 == 0) | (entity_pred % 4 == 2)
+                rel_mask = torch.triu(torch.ones_like(batch_labels, dtype=torch.bool), diagonal=1)
+
+                # rel_mask  = rel_mask * torch.ger(is_end.float(), is_end.float()).bool()
+                # print("mask:", rel_mask)
+                batch_loss_masked = batch_loss * rel_mask
+                # print(batch_loss_masked)
+                rel_loss += batch_loss_masked.sum() 
 
 
 #         print("entity loss:", entity_loss, "rel loss:", rel_loss)    
-        train_loss = entity_loss + rel_loss
+        train_loss =  entity_loss + rel_loss
         
         if not is_eval:
             train_loss.backward()
