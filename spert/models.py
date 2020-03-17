@@ -302,7 +302,7 @@ class TableF(BertPreTrainedModel):
             for i in range(num_steps): # no [CLS], no [SEP] 
 
                 # curr word repr.
-                print("i:", i)
+                # print("i:", i)
                 curr_word_repr = curr_word_reprs[:, i]
                 # mask from previous entity token until current position.
 
