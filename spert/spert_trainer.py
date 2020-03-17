@@ -363,13 +363,15 @@ class SpERTTrainer(BaseTrainer):
                     # loss = compute_loss.compute(entity_scores, entity_labels, rel_clf, rel_labels, batch.start_token_masks, is_eval=True)  
                     # entity_clf = util.beam_repeat(entity_clf, self.args.beam_size)
                     # rel_clf = util.beam_repeat(rel_clf, self.args.beam_size)
+                    evaluator.eval_batch(entity_preds, entity_scores, rel_clf, batch, entity_labels)
+
                 elif self.args.model_type == 'bert_ner':
                     entity_clf, rel_clf = model(batch.encodings, batch.ctx_masks, evaluate=True) 
 
                     entity_labels = batch.entity_labels
                     token_mask = batch.start_token_masks.sum(dim=1)
                     loss = compute_loss.compute(entity_clf, entity_labels, token_mask, is_eval=True) 
-                evaluator.eval_batch(entity_preds, entity_scores, rel_clf, batch, entity_labels)
+                    evaluator.eval_batch(None, entity_clf, rel_clf, batch, entity_labels)
 
         global_iteration = epoch * updates_epoch + iteration
         ner_eval, rel_eval, rel_ner_eval = evaluator.compute_scores()

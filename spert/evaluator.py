@@ -54,7 +54,8 @@ class Evaluator:
                     batch_entity_scores: List[torch.tensor],
                     batch_rel_clf: List[torch.tensor],
                    batch: EvalTensorBatch, gold_labels: List[int]):
-        batch_size = len(batch_entity_preds)
+        
+        batch_size = len(batch_entity_scores)
 
         for i in range(batch_size):
             # get model predictions for sample
@@ -83,13 +84,13 @@ class Evaluator:
                 # print("pred:", pred_relations)
             elif self._model_type == 'bert_ner':
 
-                entity_scores, entity_preds = torch.max(entity_clf, dim=1)
+                entity_scores, entity_preds = torch.max(batch_entity_scores[i], dim=1)
                 entity_scores = entity_scores[1:-1]
                 entity_preds = entity_preds[1:-1]
                 # print("entity_scores:", entity_scores)            
                 ### training (word level):
                 pred_entities = self._convert_pred_entities_(entity_preds, entity_scores, 
-                    batch.token_masks[i], start_labels)
+                    batch.token_masks[i])
 
                 pred_relations = []
 
@@ -386,7 +387,7 @@ class Evaluator:
 
 
     def _convert_pred_entities_(self, pred_types: torch.tensor, pred_scores: torch.tensor, 
-        token_mask: torch.tensor, start_labels: List[int]):
+        token_mask: torch.tensor):
         converted_preds = []
         # print(pred_types)
         # print("pred types:", pred_types)
@@ -402,7 +403,10 @@ class Evaluator:
                 # print("type ids:", type_ids)
                 score = pred_scores[token_mask[i][1:context_size-1]][0].item()
 
-                if type_ids[0].item() in start_labels and curr_type != 0:
+                type_idx = type_ids[0].item()
+                is_start = type_idx % 4 == 1 or type_idx % 4 == 2 or type_idx == 0
+
+                if is_start and curr_type != 0:
 
                     end = curr_token[0].item() + 1
                     converted_pred = (start, end, entity_type, score)

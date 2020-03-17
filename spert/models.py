@@ -302,9 +302,10 @@ class TableF(BertPreTrainedModel):
             for i in range(num_steps): # no [CLS], no [SEP] 
 
                 # curr word repr.
-#                 print("i:", i, "prev_label:", prev_label)
+                print("i:", i)
                 curr_word_repr = curr_word_reprs[:, i]
                 # mask from previous entity token until current position.
+
                 prev_mask = entity_masks[:, i, :]
                 # print("prev mask:", prev_mask)
                 # prvious label embedding.
@@ -318,17 +319,17 @@ class TableF(BertPreTrainedModel):
 
                 curr_entity_logits = self.entity_classifier(curr_entity_repr)
 
-                beam_entity.advance(torch.softmax(curr_entity_logits, dim=-1))
+                beam_entity.advance(curr_entity_logits)
 
                 curr_label = beam_entity.get_curr_state
 
 
                 istart =  (curr_label % 4 == 1) | (curr_label % 4 == 2) | (curr_label == 0)
 
+
                 entity_masks[:, i+1] +=  (~istart).unsqueeze(-1) * prev_mask
 
                 entity_masks[:, i, i+1] += (~istart)
-
 
             entity_scores, entity_preds = beam_entity.get_best_path
             entity_scores = entity_scores.to(self._device)

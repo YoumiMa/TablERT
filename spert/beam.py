@@ -32,9 +32,9 @@ class BeamSearch(object):
         self._all_scores.append(self._curr_scores)
         # print("top score ids:", top_score_ids)
         prev_k = top_score_ids / vocab_size # beam index
-        # print("prev k:", prev_k)
+        print("prev k:", prev_k)
         curr_y = top_score_ids - prev_k * vocab_size 
-        # print("curr_y:", curr_y)
+        print("curr_y:", curr_y)
         
         self._prev_ks.append(prev_k)
         self._curr_ys.append(curr_y)
@@ -63,8 +63,7 @@ class BeamSearch(object):
         length = len(self._all_scores)
         # print("prev pointers:", self._prev_ks)
         bps = [self._prev_ks[i][0] for i in range(length)]
-        # print("bps:", bps)
-        # print("ys:", self._curr_ys)
+        
         preds = torch.tensor([self._curr_ys[i+1][bps[i]].item() for i in range(length)])
         # print("preds:", preds)
         scores = torch.tensor([self._all_scores[i][bps[i]].item() for i in range(length)])
