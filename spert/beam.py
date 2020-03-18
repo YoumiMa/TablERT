@@ -63,7 +63,6 @@ class BeamSearch(object):
         length = len(self._all_scores)
         # print("prev pointers:", self._prev_ks)
         bps = [self._prev_ks[i][0] for i in range(length)]
-        
         preds = torch.tensor([self._curr_ys[i+1][bps[i]].item() for i in range(length)])
         # print("preds:", preds)
         scores = torch.tensor([self._all_scores[i][bps[i]].item() for i in range(length)])

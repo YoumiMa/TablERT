@@ -40,7 +40,7 @@ class SpERTLoss(Loss):
                     continue
                 batch_loss = self._rel_criterion(batch_logits, batch_labels.unsqueeze(0))
 
-                entity_pred = entity_logits[b].argmax(dim=2).squeeze(0)
+                # entity_pred = entity_logits[b].argmax(dim=2).squeeze(0)
                 # is_end = (entity_pred % 4 == 0) | (entity_pred % 4 == 2)
                 rel_mask = torch.triu(torch.ones_like(batch_labels, dtype=torch.bool), diagonal=1)
 

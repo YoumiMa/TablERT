@@ -18,6 +18,7 @@ class MultiHeadAttention(nn.Module):
 
         self.w_q = nn.Linear(input_dim, hid_dim * n_heads)
         self.w_k = nn.Linear(input_dim, hid_dim * n_heads)
+        # self.w_u = nn.Parameter(torch.randn(n_heads, hid_dim, hid_dim))
         # self.w_v = nn.Linear(input_dim, hid_dim * n_heads)
 
 
@@ -38,6 +39,8 @@ class MultiHeadAttention(nn.Module):
         K = K.view(batch_size, -1, self.n_heads, self.hid_dim).permute(0, 2, 1, 3)
         # V = V.view(batch_size, -1, self.n_heads, self.hid_dim).permute(0, 2, 1, 3)
 
+
+        # Q = torch.matmul(Q, self.w_u)
         energy = torch.matmul(Q, K.permute(0,1,3,2)) 
 
         if mask is not None:
