@@ -511,6 +511,6 @@ class Dataset:
         return len(self._relations)
 
     @property
-    def max_entity_len(self):
-        return self._max_entity_len
+    def token_count(self):
+        return self._tid
     

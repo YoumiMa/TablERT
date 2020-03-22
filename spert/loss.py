@@ -29,6 +29,7 @@ class SpERTLoss(Loss):
 
         for b, batch_logits in enumerate(entity_logits):
             batch_entities = entity_labels[b]
+            # print(batch_entities)
             loss = self._entity_criterion(batch_logits.squeeze(0), batch_entities)
 #             print("ent loss:", loss)
             entity_loss += loss.sum()
@@ -40,7 +41,7 @@ class SpERTLoss(Loss):
                     continue
                 batch_loss = self._rel_criterion(batch_logits, batch_labels.unsqueeze(0))
 
-                # entity_pred = entity_logits[b].argmax(dim=2).squeeze(0)
+                entity_pred = entity_logits[b].argmax(dim=2).squeeze(0)
                 # is_end = (entity_pred % 4 == 0) | (entity_pred % 4 == 2)
                 rel_mask = torch.triu(torch.ones_like(batch_labels, dtype=torch.bool), diagonal=1)
 
@@ -59,7 +60,7 @@ class SpERTLoss(Loss):
             torch.nn.utils.clip_grad_norm_(self._model.parameters(), self._max_grad_norm)
             self._optimizer.step()
             self._scheduler.step()
-#             self._model.zero_grad()
+            self._model.zero_grad()
         return torch.tensor([train_loss.item(), entity_loss.item(), rel_loss.item()])
 
 
@@ -88,5 +89,5 @@ class NERLoss(Loss):
             torch.nn.utils.clip_grad_norm_(self._model.parameters(), self._max_grad_norm)
             self._optimizer.step()
             self._scheduler.step()
-            # self._model.zero_grad()
+            self._model.zero_grad()
         return torch.tensor([train_loss.item()])

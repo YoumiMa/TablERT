@@ -18,7 +18,7 @@ class MultiHeadAttention(nn.Module):
 
         self.w_q = nn.Linear(input_dim, hid_dim * n_heads)
         self.w_k = nn.Linear(input_dim, hid_dim * n_heads)
-        # self.w_u = nn.Parameter(torch.randn(n_heads, hid_dim, hid_dim))
+        self.w_u = nn.Parameter(torch.randn(n_heads, hid_dim, hid_dim))
         # self.w_v = nn.Linear(input_dim, hid_dim * n_heads)
 
 

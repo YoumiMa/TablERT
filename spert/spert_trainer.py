@@ -477,7 +477,7 @@ class SpERTTrainer(BaseTrainer):
             self._logger.info("Document count: %s" % d.document_count)
             self._logger.info("Relation count: %s" % d.relation_count)
             self._logger.info("Entity count: %s" % d.entity_count)
-            self._logger.info("Max entity length: %s"% d.max_entity_len)
+            self._logger.info("Token count: %s"% d.token_count)
 
         self._logger.info("Context size: %s" % input_reader.context_size)
 
