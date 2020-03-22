@@ -97,7 +97,7 @@ class TableF(BertPreTrainedModel):
         self._device = device
         # layers
         self.entity_label_embedding = nn.Embedding(entity_labels , entity_label_embedding)
-        self.entity_classifier = nn.Linear(config.hidden_size  + entity_label_embedding, entity_labels)
+        self.entity_classifier = nn.Linear(config.hidden_size * 2 + entity_label_embedding, entity_labels)
        # sel.crf = torchcrf.CRF(entity_labels)
         self.attn = MultiHeadAttention(relation_labels, config.hidden_size + entity_label_embedding, att_hidden , device)
         self.dropout = nn.Dropout(prop_drop)
