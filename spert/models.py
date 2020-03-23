@@ -97,7 +97,7 @@ class TableF(BertPreTrainedModel):
         self._device = device
         # layers
         self.entity_label_embedding = nn.Embedding(entity_labels , entity_label_embedding)
-        self.entity_classifier = nn.Linear(config.hidden_size * 2 + entity_label_embedding, entity_labels)
+        self.entity_classifier = nn.Linear(config.hidden_size * 2, entity_labels)
        # sel.crf = torchcrf.CRF(entity_labels)
         self.attn = MultiHeadAttention(relation_labels, config.hidden_size + entity_label_embedding, att_hidden , device)
         self.dropout = nn.Dropout(prop_drop)
@@ -185,8 +185,8 @@ class TableF(BertPreTrainedModel):
         prev_label_embeddings = self.entity_label_embedding(prev_seq[:-1])
         # print("embedding:", prev_label_embeddings)
 
-        rnn_input = torch.cat([self.dropout(curr_word_repr - 1), self.dropout(prev_entity_pooled - 1), prev_label_embeddings], dim=1).unsqueeze(0)
-        # rnn_input = curr_word_repr.unsqueeze(0) - 1
+        rnn_input = torch.cat([self.dropout(curr_word_repr - 1), self.dropout(prev_entity_pooled - 1)], dim=1).unsqueeze(0)
+#         rnn_input = self.dropout(curr_word_repr).unsqueeze(0) - 1
         # rnn_initial = torch.zeros((rnn_input.shape[0], rnn_input.shape[1], self._rnn_hidden_dim), dtype=torch.float).to(self._device)
         # rnn_output , hm = self.rnn(rnn_input, rnn_initial)
 
@@ -320,8 +320,8 @@ class TableF(BertPreTrainedModel):
                 prev_entity = word_h_pooled.unsqueeze(0) * prev_mask.unsqueeze(-1)
                 prev_entity_pooled = prev_entity.max(dim=1)[0]
 
-                curr_entity_repr = torch.cat([curr_word_repr - 1, prev_entity_pooled - 1, prev_label_embedding], dim=1).unsqueeze(0)
-                # curr_entity_repr = curr_word_repr - 1
+                curr_entity_repr = torch.cat([curr_word_repr - 1, prev_entity_pooled - 1], dim=1).unsqueeze(0)
+#                 curr_entity_repr = curr_word_repr.unsqueeze(0) - 1
                 curr_entity_logits = self.entity_classifier(curr_entity_repr)
                 beam_entity.advance(curr_entity_logits)
 
