@@ -97,7 +97,7 @@ class TableF(BertPreTrainedModel):
         self._device = device
         # layers
         self.entity_label_embedding = nn.Embedding(entity_labels , entity_label_embedding)
-        self.entity_classifier = nn.Linear(config.hidden_size * 2, entity_labels)
+        self.entity_classifier = nn.Linear(config.hidden_size * 2 + entity_label_embedding, entity_labels)
        # sel.crf = torchcrf.CRF(entity_labels)
         self.attn = MultiHeadAttention(relation_labels, config.hidden_size + entity_label_embedding, att_hidden , device)
         self.dropout = nn.Dropout(prop_drop)
@@ -182,10 +182,15 @@ class TableF(BertPreTrainedModel):
         # prev_label_embedding.
 
         prev_seq = torch.cat([torch.tensor([0]).to(self._device), gold_seq])
-        prev_label_embeddings = self.entity_label_embedding(prev_seq[:-1])
+        prev_label = self.entity_label_embedding(prev_seq) + 1
+        prev_label = prev_label.unsqueeze(0).repeat(prev_label.shape[0], 1, 1) * prev_entity[:-1, :-1].unsqueeze(-1)
+        
+        prev_label_pooled = prev_label.max(dim=1)[0]
+        prev_label_pooled = prev_label_pooled[:num_steps].contiguous()
+
         # print("embedding:", prev_label_embeddings)
 
-        rnn_input = torch.cat([self.dropout(curr_word_repr - 1), self.dropout(prev_entity_pooled - 1)], dim=1).unsqueeze(0)
+        rnn_input = torch.cat([self.dropout(curr_word_repr), self.dropout(prev_entity_pooled), prev_label_pooled], dim=1).unsqueeze(0) - 1
 #         rnn_input = self.dropout(curr_word_repr).unsqueeze(0) - 1
         # rnn_initial = torch.zeros((rnn_input.shape[0], rnn_input.shape[1], self._rnn_hidden_dim), dtype=torch.float).to(self._device)
         # rnn_output , hm = self.rnn(rnn_input, rnn_initial)
@@ -301,7 +306,7 @@ class TableF(BertPreTrainedModel):
             entity_masks = entity_masks.unsqueeze(0).repeat(beam_size, 1, 1)
             entity_masks[:, 0] = 0
 
-            prev_label = torch.zeros(beam_size, dtype=torch.long).to(self._device)
+            prev_label = torch.zeros((beam_size, num_steps+1), dtype=torch.long).to(self._device)
 
            # Entity classification.
             for i in range(num_steps): # no [CLS], no [SEP] 
@@ -314,20 +319,24 @@ class TableF(BertPreTrainedModel):
                 prev_mask = entity_masks[:, i, :]
                 # prvious label embedding.
                 # print("prev label:", prev_label)
-                prev_label_embedding = self.entity_label_embedding(prev_label)
-                # print("prev label embedding:", prev_label_embedding)
+                # print("prev mask:", prev_mask)
+                prev_label_repr = self.entity_label_embedding(prev_label[:, :i+1]) + 1
+                # print("prev label repr:", prev_label_repr)
+                prev_label_repr = prev_label_repr * prev_mask[:, :i+1] .unsqueeze(-1)
+                prev_label_pooled = prev_label_repr.max(dim=1)[0]
+                # print("prev pooled:", prev_label_pooled)
                 
                 prev_entity = word_h_pooled.unsqueeze(0) * prev_mask.unsqueeze(-1)
                 prev_entity_pooled = prev_entity.max(dim=1)[0]
 
-                curr_entity_repr = torch.cat([curr_word_repr - 1, prev_entity_pooled - 1], dim=1).unsqueeze(0)
+                curr_entity_repr = torch.cat([curr_word_repr, prev_entity_pooled, prev_label_pooled], dim=1).unsqueeze(0) - 1
 #                 curr_entity_repr = curr_word_repr.unsqueeze(0) - 1
                 curr_entity_logits = self.entity_classifier(curr_entity_repr)
                 beam_entity.advance(curr_entity_logits)
 
                 curr_label = beam_entity.get_curr_state
 
-                prev_label = curr_label
+                prev_label[:, i+1] = curr_label
 
                 istart =  (curr_label % 4 == 1) | (curr_label % 4 == 2) | (curr_label == 0)
 
