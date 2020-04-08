@@ -357,8 +357,7 @@ class SpERTTrainer(BaseTrainer):
             
                 if self.args.model_type == 'table_filling':
                     entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.start_token_masks)
-                    entity_scores, entity_preds, rel_clf = model(batch.encodings, batch.ctx_masks, batch.token_masks, 
-                    input_reader._start_entity_label, entity_labels, batch.entity_masks, evaluate=True) 
+                    entity_scores, entity_preds, rel_clf = model(batch.encodings, batch.ctx_masks, batch.token_masks, evaluate=True) 
                     loss = torch.tensor([1])
                     # loss = compute_loss.compute(entity_scores, entity_labels, rel_clf, rel_labels, batch.start_token_masks, is_eval=True)  
                     # entity_clf = util.beam_repeat(entity_clf, self.args.beam_size)

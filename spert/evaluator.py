@@ -77,9 +77,9 @@ class Evaluator:
                 # print("preds:", rel_preds)
                 # print("scores:", rel_scores.shape)
 
-                # pred_relations = []
-                pred_relations = self._convert_pred_relations_(rel_preds, rel_scores, 
-                                                                pred_entities, batch.token_masks[i])
+                pred_relations = []
+#                 pred_relations = self._convert_pred_relations_(rel_preds, rel_scores, 
+#                                                                 pred_entities, batch.token_masks[i])
                 # print("gold:", self._gt_relations)
                 # print("pred:", pred_relations)
             elif self._model_type == 'bert_ner':

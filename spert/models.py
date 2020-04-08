@@ -182,7 +182,7 @@ class TableF(BertPreTrainedModel):
         # prev_label_embedding.
 
         prev_seq = torch.cat([torch.tensor([0]).to(self._device), gold_seq])
-        prev_label = self.entity_label_embedding(prev_seq)
+        prev_label = self.entity_label_embedding(prev_seq[:-1])
 
         rnn_input = torch.cat([self.dropout(curr_word_repr) - 1, self.dropout(prev_entity_pooled) - 1, prev_label], dim=1).unsqueeze(0)
 #         rnn_input = self.dropout(curr_word_repr).unsqueeze(0) - 1
@@ -273,9 +273,8 @@ class TableF(BertPreTrainedModel):
 
     
     def _forward_eval(self, encodings: torch.tensor, context_mask: torch.tensor, 
-                        token_mask: torch.tensor, start_labels: List[int],
-                        gold_entity: torch.tensor, gold_entity_mask: torch.tensor):
-        
+                        token_mask: torch.tensor):
+                
         context_mask = context_mask.float()
         h = self.bert(input_ids=encodings, attention_mask=context_mask)[0] + 1
 
@@ -289,7 +288,7 @@ class TableF(BertPreTrainedModel):
             beam_entity = BeamSearch(self._beam_size)
             beam_size = beam_entity.get_beam_size
 
-            num_steps = gold_entity[batch].shape[-1]
+            num_steps = token_mask[batch].sum(axis=1).nonzero().shape[0] - 2
             word_h = h[batch].repeat(token_mask[batch].shape[0], 1, 1) * token_mask[batch].unsqueeze(-1)
             word_h_pooled = word_h.max(dim=1)[0]
             word_h_pooled = word_h_pooled[:num_steps+2].contiguous()
@@ -326,7 +325,7 @@ class TableF(BertPreTrainedModel):
 
                 curr_label = beam_entity.get_curr_state
 
-                prev_label[:, i+1] = curr_label
+                prev_label = curr_label
 
                 istart =  (curr_label % 4 == 1) | (curr_label % 4 == 2) | (curr_label == 0)
 
@@ -345,7 +344,7 @@ class TableF(BertPreTrainedModel):
             all_entity_preds.append(entity_preds)
 
             # Relation classification.
-            curr_rel_logits = self._forward_relation(curr_word_reprs[0], entity_preds, entity_masks[0], gold_entity[batch], True)
+            curr_rel_logits = self._forward_relation(curr_word_reprs[0], entity_preds, entity_masks[0], None, True)
             all_rel_logits.append(curr_rel_logits)
 
 
