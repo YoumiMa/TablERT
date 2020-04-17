@@ -216,8 +216,8 @@ class TableF(BertPreTrainedModel):
         entity_label_pool = entity_label_repr.max(dim=1)[0]
 
 
-        rel_embedding = torch.cat([entity_repr_pool.unsqueeze(0) - 1, entity_label_pool.unsqueeze(0)], dim=2)
-        rel_embedding = self.dropout(rel_embedding)
+        rel_embedding = torch.cat([self.dropout(entity_repr_pool).unsqueeze(0) - 1, entity_label_pool.unsqueeze(0)], dim=2)
+#         rel_embedding = self.dropout(rel_embedding)
         att = self.attn(rel_embedding, rel_embedding, rel_embedding)
 
         return att
