@@ -98,8 +98,8 @@ class TableF(BertPreTrainedModel):
         # layers
         self.entity_label_embedding = nn.Embedding(entity_labels , entity_label_embedding)
         self.entity_classifier = nn.Linear(config.hidden_size * 2 + entity_label_embedding, entity_labels)
-       # sel.crf = torchcrf.CRF(entity_labels)
         self.attn = MultiHeadAttention(relation_labels, config.hidden_size + entity_label_embedding, att_hidden , device)
+        self.relation_classifier = nn.Linear(relation_labels * 3, relation_labels)
         self.dropout = nn.Dropout(prop_drop)
 
         self._relation_labels = relation_labels
@@ -216,11 +216,17 @@ class TableF(BertPreTrainedModel):
         entity_label_pool = entity_label_repr.max(dim=1)[0]
 
 
-        rel_embedding = torch.cat([self.dropout(entity_repr_pool).unsqueeze(0) - 1, entity_label_pool.unsqueeze(0)], dim=2)
-#         rel_embedding = self.dropout(rel_embedding)
+        rel_embedding = torch.cat([entity_repr_pool.unsqueeze(0) - 1, entity_label_pool.unsqueeze(0)], dim=2)
+        rel_embedding = self.dropout(rel_embedding)
         att = self.attn(rel_embedding, rel_embedding, rel_embedding)
+        upper = att[:, :, 1:, 1:]
+        right = att[:, :, :-1, :-1]
+        pad = nn.ZeroPad2d((1, 0, 0, 1))
+        rel_repr = torch.cat([att, pad(upper), pad(right)], dim=1)
+        # print("rel_repr:", rel_repr.view(rel_repr.shape[0], rel_repr.shape[1], -1).shape)
+        rel_logits = self.relation_classifier(rel_repr.permute(0,2,3,1))
 
-        return att
+        return rel_logits.permute(0,3,1,2)
 
     def _forward_train(self, encodings: torch.tensor, context_mask: torch.tensor, 
                         token_mask: torch.tensor, start_labels: List[int], 
