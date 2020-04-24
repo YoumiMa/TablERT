@@ -53,7 +53,6 @@ class Evaluator:
     def eval_batch(self, batch_entity_preds: List[torch.tensor], 
                     batch_entity_scores: List[torch.tensor],
                     batch_rel_clf: List[torch.tensor],
-                    batch_rel_preds: List[torch.tensor],
                    batch: EvalTensorBatch, gold_labels: List[int]):
         
         batch_size = len(batch_entity_scores)
@@ -66,25 +65,25 @@ class Evaluator:
 
                 entity_preds = batch_entity_preds[i]
                 entity_scores = batch_entity_scores[i]
-                # rel_clf = torch.softmax(batch_rel_clf[i], dim=1)
+                rel_clf = torch.softmax(batch_rel_clf[i], dim=1)
 
 
                 pred_entities = self._convert_pred_entities_start(entity_preds, entity_scores, 
                     batch.token_masks[i])
                 # print(pred_entities)
                 ##### Relation.
-                # rel_scores, rel_preds = rel_clf.squeeze(0).max(dim=0)
-                rel_scores = batch_rel_clf[i]
-                rel_preds = batch_rel_preds[i]
+                rel_scores, rel_preds = rel_clf.squeeze(0).max(dim=0)
+                # rel_scores = batch_rel_clf[i]
+                # rel_preds = batch_rel_preds[i]
                 # print("rel_clf:", rel_clf.shape)
                 # print("preds:", rel_preds)
                 # print("scores:", rel_scores.shape)
 
-#                 pred_relations = []
+                # pred_relations = []
                 pred_relations = self._convert_pred_relations_(rel_preds, rel_scores, 
                                                                 pred_entities, batch.token_masks[i])
-                # print("gold:", self._gt_relations)
-                # print("pred:", pred_relations)
+                # print("gold:", self._gt_entities)
+                # print("pred:", pred_entities)
             elif self._model_type == 'bert_ner':
 
                 entity_scores, entity_preds = torch.max(batch_entity_scores[i], dim=1)

@@ -301,10 +301,10 @@ class SpERTTrainer(BaseTrainer):
 
 
             if self.args.model_type == 'table_filling':
+                # print("token masks:", batch.token_masks)
                 entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.start_token_masks)
                 entity_logits, rel_logits = model(batch.encodings, batch.ctx_masks, 
-                    batch.token_masks, start_labels, entity_labels, batch.entity_masks, 
-                    rel_labels, allow_rel)
+                    batch.token_masks, start_labels, entity_labels, batch.entity_masks, allow_rel)
                 # entity_logits = util.beam_repeat(entity_logits, self.args.beam_size)
                 loss = compute_loss.compute(entity_logits, entity_labels, rel_logits, rel_labels, batch.start_token_masks) 
             elif self.args.model_type == 'bert_ner':
@@ -358,13 +358,12 @@ class SpERTTrainer(BaseTrainer):
             
                 if self.args.model_type == 'table_filling':
                     entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.start_token_masks)
-                    entity_scores, entity_preds, rel_clf, rel_preds = model(batch.encodings, batch.ctx_masks, batch.token_masks,
-                                                                rel_labels, evaluate=True) 
+                    entity_scores, entity_preds, rel_clf = model(batch.encodings, batch.ctx_masks, batch.token_masks, evaluate=True) 
                     loss = torch.tensor([1])
                     # loss = compute_loss.compute(entity_scores, entity_labels, rel_clf, rel_labels, batch.start_token_masks, is_eval=True)  
                     # entity_clf = util.beam_repeat(entity_clf, self.args.beam_size)
                     # rel_clf = util.beam_repeat(rel_clf, self.args.beam_size)
-                    evaluator.eval_batch(entity_preds, entity_scores, rel_clf, rel_preds, batch, entity_labels)
+                    evaluator.eval_batch(entity_preds, entity_scores, rel_clf, batch, entity_labels)
 
                 elif self.args.model_type == 'bert_ner':
                     entity_clf, rel_clf = model(batch.encodings, batch.ctx_masks, evaluate=True) 

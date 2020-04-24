@@ -98,8 +98,8 @@ class TableF(BertPreTrainedModel):
         # layers
         self.entity_label_embedding = nn.Embedding(entity_labels , entity_label_embedding)
         self.entity_classifier = nn.Linear(config.hidden_size * 2 + entity_label_embedding, entity_labels)
+       # sel.crf = torchcrf.CRF(entity_labels)
         self.attn = MultiHeadAttention(relation_labels, config.hidden_size + entity_label_embedding, att_hidden , device)
-        self.relation_classifier = nn.Linear(relation_labels * 5, relation_labels)
         self.dropout = nn.Dropout(prop_drop)
 
         self._relation_labels = relation_labels
@@ -132,35 +132,35 @@ class TableF(BertPreTrainedModel):
         return prev_mask
 
 
-    def _forward_token(self, h: torch.tensor, curr_index: int, 
-                prev_mask: torch.tensor, prev_embedding: torch.tensor):
+#     def _forward_token(self, h: torch.tensor, curr_index: int, 
+#                 prev_mask: torch.tensor, prev_embedding: torch.tensor):
 
-        curr_repr = h[curr_index].unsqueeze(0)
+#         curr_repr = h[curr_index].unsqueeze(0)
         
 
-        # maxpool between previous entity and current position.
-        masked_repr = h[prev_mask]
-        # print("masked repr:", masked_repr, masked_repr.shape)
-        masked_repr_pool = masked_repr.max(dim=0)[0].unsqueeze(0)
-#         cls_repr = h[0].unsqueeze(0)
+#         # maxpool between previous entity and current position.
+#         masked_repr = h[prev_mask]
+#         # print("masked repr:", masked_repr, masked_repr.shape)
+#         masked_repr_pool = masked_repr.max(dim=0)[0].unsqueeze(0)
+# #         cls_repr = h[0].unsqueeze(0)
 
-        # previous label embedding.
-        prev_embedding = prev_embedding.unsqueeze(0)
+#         # previous label embedding.
+#         prev_embedding = prev_embedding.unsqueeze(0)
 
-        # print(curr_repr.shape, masked_repr_pool.shape, prev_embedding.shape)
-        # concat them for linear classification.
-        entity_repr = torch.cat([curr_repr, masked_repr_pool, prev_embedding], dim=1)
+#         # print(curr_repr.shape, masked_repr_pool.shape, prev_embedding.shape)
+#         # concat them for linear classification.
+#         entity_repr = torch.cat([curr_repr, masked_repr_pool, prev_embedding], dim=1)
         
-        # dropout.
-        entity_repr = self.dropout(entity_repr)
+#         # dropout.
+#         entity_repr = self.dropout(entity_repr)
 
 
-        entity_logits = self.entity_classifier(entity_repr)
+#         entity_logits = self.entity_classifier(entity_repr)
 
-        return entity_logits
+#         return entity_logits
 
 
-    def _forward_token_rnn(self, h: torch.tensor, token_mask: torch.tensor, 
+    def _forward_token(self, h: torch.tensor, token_mask: torch.tensor, 
                            gold_seq: torch.tensor, entity_mask: torch.tensor):
 
         num_steps = gold_seq.shape[-1]
@@ -199,7 +199,7 @@ class TableF(BertPreTrainedModel):
 
     def _forward_relation(self, h: torch.tensor,  entity_preds: torch.tensor, 
                           entity_mask: torch.tensor, gold_entity: torch.tensor,
-                          gold_rel: torch.tensor, is_eval: bool = False):
+                          is_eval: bool = False):
 #         if is_eval:
         entity_labels = entity_preds.unsqueeze(0)
 #         else:
@@ -217,66 +217,15 @@ class TableF(BertPreTrainedModel):
 
 
         rel_embedding = torch.cat([self.dropout(entity_repr_pool).unsqueeze(0) - 1, entity_label_pool.unsqueeze(0)], dim=2)
-        # rel_embedding = self.dropout(rel_embedding)
+#         rel_embedding = self.dropout(rel_embedding)
         att = self.attn(rel_embedding, rel_embedding, rel_embedding)
-        if is_eval:
-            beam_rel = BeamSearch(self._beam_size)
 
-            att_ = att.repeat(self._beam_size, 1, 1, 1)
-            rel_logits = torch.zeros_like(att_)
-            # print(att.shape)
-            prev_preds = torch.zeros_like(att_)
-
-            # print(prev_preds.shape)
-            for i in range(1, att.shape[2]):
-                for j in range(0, att.shape[2]):
-                    if j+i < att.shape[2]:
-                        lower = prev_preds[:,:, j+1, j+i]
-                        left = prev_preds[:,:, j, j+i-1]
-                        curr_repr = torch.cat([att_[:,:,j,j+i], lower, torch.triu(att_,diagonal=1)[:,:,j+1,j+i], left, torch.triu(att_,diagonal=1)[:,:,j,j+i-1]], dim=1)
-                        curr_logits = self.relation_classifier(curr_repr)
-                        beam_rel.advance(curr_logits)
-                        curr_preds = beam_rel.get_curr_state
-                        # print(curr_preds)
-                        prev_preds[:,curr_preds, j, j+i] = 1
-                        # print("prev_preds:", prev_preds)
-                        rel_logits[:, :, j, j+i] = curr_logits
-                        # print(curr_repr)
-                    # exit(0)
-            # print("prev pred:", prev_preds)
-            # print(rel_logits)
-            rel_best_scores, rel_best_path = beam_rel.get_best_path
-            curr = 0
-            rel_preds = torch.zeros_like(gold_rel)
-            rel_scores = torch.zeros_like(gold_rel).float()
-            for i in range(1, att.shape[2]):
-                for j in range(0, att.shape[2]):
-                    if j+i < att.shape[2]:
-                        rel_preds[j, j+i] = rel_best_path[curr]
-                        rel_scores[j, j+i] = rel_best_scores[curr]
-                        curr += 1       
-            return rel_scores, rel_preds
-
-        else:
-            one_hot_rel = nn.functional.one_hot(gold_rel, self._relation_labels).unsqueeze(0)
-            one_hot_rel = one_hot_rel.permute(0,3,1,2)
-            lower = torch.triu(one_hot_rel,diagonal=1)[:, :, 1:, 1:].float()
-            att_lower = torch.triu(att, diagonal=1)[:, :, 1:, 1:]
-            left = torch.triu(one_hot_rel,diagonal=1)[:, :, :-1, :-1].float()
-            att_left =  torch.triu(att, diagonal=1)[:, :, :-1, :-1]
-            pad = nn.ZeroPad2d((1, 0, 0, 1))
-            # print("att:", att)
-            # print("lower:", att_lower)
-            rel_repr =  torch.cat([att, pad(lower), pad(att_lower), pad(left), pad(att_left)], dim=1)
-            # print("rel_repr:", rel_repr.permute(0,2,3,1)[:, 0, 0,:])
-            rel_logits = self.relation_classifier(rel_repr.permute(0,2,3,1)).permute(0,3,1,2)
-
-        return rel_logits
+        return att
 
     def _forward_train(self, encodings: torch.tensor, context_mask: torch.tensor, 
                         token_mask: torch.tensor, start_labels: List[int], 
                         gold_entity: torch.tensor, entity_masks: List[torch.tensor],
-                        gold_rel:torch.tensor, allow_rel: bool):  
+                        allow_rel: bool):  
         # get contextualized token embeddings from last transformer layer
         context_mask = context_mask.float()
         h = self.bert(input_ids=encodings, attention_mask=context_mask)[0] + 1
@@ -291,7 +240,7 @@ class TableF(BertPreTrainedModel):
 
             entity_mask = entity_masks[batch]
 
-            word_h, curr_entity_logits = self._forward_token_rnn(h[batch], token_mask[batch], gold_entity[batch], entity_mask)
+            word_h, curr_entity_logits = self._forward_token(h[batch], token_mask[batch], gold_entity[batch], entity_mask)
 
             entity_preds = torch.argmax(curr_entity_logits, dim=2)
             
@@ -314,7 +263,7 @@ class TableF(BertPreTrainedModel):
             # curr word repr.
             curr_word_repr = word_h_pooled[1:-1].contiguous()
 
-            curr_rel_logits = self._forward_relation(curr_word_repr, entity_preds.squeeze(0) , pred_entity_mask, gold_entity[batch], gold_rel[batch])
+            curr_rel_logits = self._forward_relation(curr_word_repr, entity_preds.squeeze(0) , pred_entity_mask, gold_entity[batch])
             all_rel_logits.append(curr_rel_logits)
 
         if allow_rel:
@@ -324,7 +273,7 @@ class TableF(BertPreTrainedModel):
 
     
     def _forward_eval(self, encodings: torch.tensor, context_mask: torch.tensor, 
-                        token_mask: torch.tensor, gold_rel:torch.tensor):
+                        token_mask: torch.tensor):
                 
         context_mask = context_mask.float()
         h = self.bert(input_ids=encodings, attention_mask=context_mask)[0] + 1
@@ -333,7 +282,6 @@ class TableF(BertPreTrainedModel):
         all_entity_scores = []
         all_entity_preds = []
         all_rel_logits = []
-        all_rel_preds = []
 
         for batch in range(batch_size): # every batch
 
@@ -396,12 +344,11 @@ class TableF(BertPreTrainedModel):
             all_entity_preds.append(entity_preds)
 
             # Relation classification.
-            curr_rel_logits, curr_rel_preds = self._forward_relation(curr_word_reprs[0], entity_preds, entity_masks[0], None, gold_rel[batch], True)
-
+            curr_rel_logits = self._forward_relation(curr_word_reprs[0], entity_preds, entity_masks[0], None, True)
             all_rel_logits.append(curr_rel_logits)
-            all_rel_preds.append(curr_rel_preds)
 
-        return all_entity_scores, all_entity_preds, all_rel_logits, all_rel_preds
+
+        return all_entity_scores, all_entity_preds, all_rel_logits
 
 
     def forward(self, *args, evaluate=False, **kwargs):
