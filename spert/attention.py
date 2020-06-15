@@ -41,7 +41,7 @@ class MultiHeadAttention(nn.Module):
 
 
         # Q = torch.matmul(Q, self.w_u)
-        energy = torch.matmul(Q, K.permute(0,1,3,2)) / self.scale 
+        energy = torch.matmul(Q, K.permute(0,1,3,2))
 
         if mask is not None:
             energy = energy.masked_fill(mask==0, -1e10)

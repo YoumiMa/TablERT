@@ -273,7 +273,7 @@ class TableF(BertPreTrainedModel):
 
     
     def _forward_eval(self, encodings: torch.tensor, context_mask: torch.tensor, 
-                        token_mask: torch.tensor):
+                        pred_entity: torch.tensor, token_mask: torch.tensor):
                 
         context_mask = context_mask.float()
         h = self.bert(input_ids=encodings, attention_mask=context_mask)[0] + 1
@@ -340,6 +340,8 @@ class TableF(BertPreTrainedModel):
             entity_scores, entity_preds = beam_entity.get_best_path
             entity_scores = entity_scores.to(self._device)
             entity_preds = entity_preds.to(self._device)
+            # if pred_entity != None:
+            #     entity_preds = pred_entity[batch]
             all_entity_scores.append(entity_scores)
             all_entity_preds.append(entity_preds)
 

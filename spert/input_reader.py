@@ -218,21 +218,29 @@ class JsonInputReader(BaseInputReader):
         jrelations = doc['relations']
         jtags = doc['tags']
 
+
         # parse tokens
         doc_tokens, doc_encoding = self._parse_tokens(jtokens, dataset)
 
-        # write NER tags as bio file
-        if dataset.label != 'train':
-            self._update_bio_file_info(jtokens, jtags)
 
         # parse entity mentions
         entities = self._parse_entities(jtags, doc_tokens, dataset)
+
+        if dataset.label == 'train':
+            pred_entities = self._parse_entities(jtags, doc_tokens, dataset)
+
+        else:
+            # write NER tags as bio file
+            self._update_bio_file_info(jtokens, jtags)
+            jpreds = doc['preds']
+            # parse predicted entity mentions
+            pred_entities = self._parse_entities(jpreds, doc_tokens, dataset)
 
         # parse relations
         relations = self._parse_relations(jrelations, entities, dataset)
 
         # create document
-        document = dataset.create_document(doc_tokens, entities, relations, doc_encoding)
+        document = dataset.create_document(doc_tokens, entities, pred_entities, relations, doc_encoding)
 
         return document
 
@@ -275,6 +283,29 @@ class JsonInputReader(BaseInputReader):
         # print('='*50, [e.entity_labels[0].short_name for e in entities])
         return entities
 
+    def _parse_pred_entities(self, jpreds, doc_tokens, dataset) -> List[Entity]:
+        
+        entities = []
+        entity_labels = []
+
+        for idx, jpred in enumerate(jpreds):
+            if not jpred.startswith('O'): # skip non-entities
+                entity_labels.append(self._entity_labels[jpred])
+                if jpred.startswith('B') or jpred.startswith('U'):
+                    start = idx
+                if jpred.startswith('U') or jpred.startswith('L'):
+                    entity_type = self._entity_types[jpred[2:]]
+                    end = idx + 1
+                    tokens = doc_tokens[start:end]
+                    # print(start, end, [t.phrase for t in doc_tokens])
+                    phrase = " ".join([t.phrase for t in tokens])
+                    entity = dataset.create_pred_entity(entity_type, entity_labels, tokens, phrase)
+                    entities.append(entity)
+                    entity_labels = []
+        # print('='*50, [e.entity_labels[0].short_name for e in entities])
+        return entities
+
+
     def _parse_relations(self, jrelations, entities, dataset) -> List[Relation]:
         relations = []
 
@@ -310,12 +341,12 @@ class JsonInputReader(BaseInputReader):
 
         bio_tags = []
         for t in tags:
-            if t.startswith('U'):
-                bio_tags.append('B' + t[1:])
-            elif t.startswith('L'):
-                bio_tags.append('I' + t[1:])
-            else:
-                bio_tags.append(t)
+            # if t.startswith('U'):
+            #     bio_tags.append('B' + t[1:])
+            # elif t.startswith('L'):
+            #     bio_tags.append('I' + t[1:])
+            # else:
+            bio_tags.append(t)
         
         self._bio_file['tokens'].append(tokens)
         self._bio_file['tags'].append(bio_tags)

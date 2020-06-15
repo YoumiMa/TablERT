@@ -3,7 +3,7 @@ import warnings
 from typing import List, Tuple, Dict
 
 import torch
-import math
+import math, codecs, json
 from sklearn.metrics import precision_recall_fscore_support as prfs
 from transformers import BertTokenizer
 
@@ -12,6 +12,7 @@ from spert.input_reader import JsonInputReader
 from spert.opt import jinja2
 from spert.sampling import EvalTensorBatch
 from spert.beam import BeamSearch
+from spert.util import split_after
 
 
 from functools import reduce
@@ -101,8 +102,6 @@ class Evaluator:
                 
                 self.update_bio_file(entity_preds) if self._model_type == 'table_filling' else self.update_bio_file_(entity_preds, batch.start_token_masks[i])
 
-            
-
             self._pred_entities.append(pred_entities)
             self._pred_relations.append(pred_relations)  
 
@@ -135,13 +134,13 @@ class Evaluator:
         
         for i in range(preds.shape[-1]):
             tag = self._input_reader._idx2entity_label[preds[i].item()].short_name
-            if tag.startswith('U'):
-                tag = 'B' + tag[1:]
-            elif tag.startswith('L'):
-                if pred_tags == [] or pred_tags[-1][1:] != tag[1:]:
-                    tag = 'B' + tag[1:]
-                else:
-                    tag = 'I' + tag[1:]
+            # if tag.startswith('U'):
+            #     tag = 'B' + tag[1:]
+            # elif tag.startswith('L'):
+            #     if pred_tags == [] or pred_tags[-1][1:] != tag[1:]:
+            #         tag = 'B' + tag[1:]
+            #     else:
+            #         tag = 'I' + tag[1:]
             pred_tags.append(tag)
   
         self._input_reader._bio_file['preds'].append(pred_tags)
@@ -156,13 +155,27 @@ class Evaluator:
         preds = self._input_reader._bio_file['preds']
 
         contents = []
+        print("tags:", tags, "preds:", preds)
+
         for t in range(len(tokens)):
             contents.append([list(i) for i in zip(tokens[t], tags[t], preds[t])])
 
-        with open(file_path, 'w+') as f:
-            for sentence in contents:
-                f.writelines([' '.join(s)+'\n' for s in sentence])
-                f.write('\n')
+        doc_wise_splited = [split_after(i, lambda x: x[0] == '[SEP]') for i in contents]
+
+        output_dicts = []
+        for i, doc in enumerate(doc_wise_splited):
+            print(i, doc)
+            for sentence in doc:
+                tokens = [t[0] for t in sentence]
+                tags = [t[1] for t in sentence]
+                preds = [t[2] for t in sentence]
+
+                # print(tokens,tags,preds)
+                output_dicts.append({"tokens": tokens, "tags": tags, "preds": preds, "orig_id": i})
+
+
+        with codecs.open(file_path, "w") as w:
+            json.dump(output_dicts, w)
 
         return
 
