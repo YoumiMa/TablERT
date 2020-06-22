@@ -43,11 +43,11 @@ class SpERTLoss(Loss):
 
                 entity_pred = entity_logits[b].argmax(dim=2).squeeze(0)
                 # is_end = (entity_pred % 4 == 0) | (entity_pred % 4 == 2)
-                rel_mask = torch.triu(torch.ones_like(batch_labels, dtype=torch.bool), diagonal=1)
+#                 rel_mask = torch.triu(torch.ones_like(batch_labels, dtype=torch.bool), diagonal=1)
 
                 # rel_mask  = rel_mask * torch.ger(is_end.float(), is_end.float()).bool()
                 # print("mask:", rel_mask)
-                batch_loss_masked = batch_loss * rel_mask
+                batch_loss_masked = torch.triu(batch_loss, diagonal=1)
                 # print(batch_loss_masked)
                 rel_loss += batch_loss_masked.sum() 
 
