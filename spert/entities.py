@@ -354,13 +354,12 @@ class Relation:
 
 class Document:
     def __init__(self, doc_id: int, tokens: List[Token], 
-                entities: List[Entity], pred_entities: List[Entity], relations: List[Relation],
+                entities: List[Entity], relations: List[Relation],
                  encoding: List[int]):
         self._doc_id = doc_id  # ID within the corresponding dataset
 
         self._tokens = tokens
         self._entities = entities
-        self._pred_entities = pred_entities
         self._relations = relations
 
         # byte-pair document encoding including special tokens ([CLS] and [SEP])
@@ -375,9 +374,6 @@ class Document:
     def entities(self):
         return self._entities
 
-    @property
-    def pred_entities(self):
-        return self._pred_entities
 
     @property
     def relations(self):
@@ -438,20 +434,17 @@ class Dataset:
 
         self._documents = OrderedDict()
         self._entities = OrderedDict()
-        self._pred_entities = OrderedDict()
         self._relations = OrderedDict()
 
         # current ids
         self._doc_id = 0
         self._rid = 0
         self._eid = 0
-        self._pred_eid = 0
         self._tid = 0
 
         # max entity length
 
         self._max_entity_len = 0
-        self._pred_max_entity_len = 0
 
     def iterate_documents(self, batch_size, order=None, truncate=False):
         return BatchIterator(self.documents, batch_size, order=order, truncate=truncate)
@@ -473,14 +466,6 @@ class Dataset:
             self._max_entity_len = mention.len
         return mention
 
-    def create_pred_entity(self, entity_type, entity_labels, tokens, phrase) -> Entity:
-
-        mention = Entity(self._pred_eid, entity_type, entity_labels, tokens, phrase)
-        self._pred_entities[self._pred_eid] = mention
-        self._pred_eid += 1
-        if mention.len > self._pred_max_entity_len:
-            self._pred_max_entity_len = mention.len
-        return mention
 
     def create_relation(self, relation_type, relation_label, head_entity, tail_entity, reverse=False) -> Relation:
         relation = Relation(self._rid, relation_type, relation_label, head_entity, tail_entity, reverse)
@@ -488,8 +473,8 @@ class Dataset:
         self._rid += 1
         return relation
 
-    def create_document(self, tokens, entity_mentions, pred_entity_mentions, relations, doc_encoding) -> Document:
-        document = Document(self._doc_id, tokens, entity_mentions, pred_entity_mentions, relations, doc_encoding)
+    def create_document(self, tokens, entity_mentions, relations, doc_encoding) -> Document:
+        document = Document(self._doc_id, tokens, entity_mentions, relations, doc_encoding)
         self._documents[self._doc_id] = document
         self._doc_id += 1
 
@@ -511,9 +496,6 @@ class Dataset:
     def entities(self):
         return list(self._entities.values())
 
-    @property
-    def pred_entities(self):
-        return list(self._pred_entities.values())
 
     @property
     def relations(self):
@@ -527,9 +509,6 @@ class Dataset:
     def entity_count(self):
         return len(self._entities)
 
-    @property
-    def pred_entity_count(self):
-        return len(self._pred_entities)
 
     @property
     def relation_count(self):

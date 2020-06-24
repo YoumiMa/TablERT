@@ -53,9 +53,6 @@ class SpERTTrainer(BaseTrainer):
         self._tokenizer = BertTokenizer.from_pretrained(args.tokenizer_path,
                                                         do_lower_case=args.lowercase,
                                                         cache_dir=args.cache_path)
-        # path to NER evalution output of BIO tagging scheme.
-
-        self._bio_file_path = args.bio_file_path
 
         # path to export relation extraction examples to
         self._examples_path = os.path.join(self._log_path, 'examples_%s_%s_epoch_%s.html')
@@ -79,7 +76,7 @@ class SpERTTrainer(BaseTrainer):
         self._init_eval_logging(valid_label)
 
         # read datasets
-        input_reader = input_reader_cls(types_path, self._bio_file_path, self._tokenizer, self._logger)
+        input_reader = input_reader_cls(types_path, self._tokenizer, self._logger)
         input_reader.read({train_label: train_path, valid_label: valid_path})
         self._log_datasets(input_reader)
 
@@ -109,19 +106,7 @@ class SpERTTrainer(BaseTrainer):
                                             # SpERT model parameters
                                             relation_labels=input_reader.relation_label_count,
                                             entity_labels=input_reader.entity_label_count,
-                                            beam_size = self.args.beam_size,
                                             att_hidden = self.args.att_hidden,
-                                            prop_drop=self.args.prop_drop,
-                                            entity_label_embedding=self.args.entity_label_embedding,
-                                            freeze_transformer=self.args.freeze_transformer,
-                                            device=self._device)
-        elif args.model_type == 'bert_ner':
-            model = model_class.from_pretrained(self.args.model_path,
-                                            cache_dir=self.args.cache_path,
-                                            tokenizer= self._tokenizer,
-                                            # SpERT model parameters
-                                            relation_labels=input_reader.relation_label_count,
-                                            entity_labels=input_reader.entity_label_count,
                                             prop_drop=self.args.prop_drop,
                                             entity_label_embedding=self.args.entity_label_embedding,
                                             freeze_transformer=self.args.freeze_transformer,
@@ -166,8 +151,6 @@ class SpERTTrainer(BaseTrainer):
 
         if args.model_type == 'table_filling':
             compute_loss = SpERTLoss(rel_criterion, entity_criterion, model, optimizer, scheduler, args.max_grad_norm)
-        elif args.model_type == 'bert_ner':
-            compute_loss = NERLoss(rel_criterion, entity_criterion, model, optimizer, scheduler, args.max_grad_norm)
 
         # eval validation set
         if args.init_eval:
@@ -211,7 +194,7 @@ class SpERTTrainer(BaseTrainer):
         self._init_eval_logging(dataset_label)
 
         # read datasets
-        input_reader = input_reader_cls(types_path, self._bio_file_path, self._tokenizer, self._logger)
+        input_reader = input_reader_cls(types_path, self._tokenizer, self._logger)
         input_reader.read({dataset_label: dataset_path})
         self._log_datasets(input_reader)
 
@@ -226,19 +209,7 @@ class SpERTTrainer(BaseTrainer):
                                             # SpERT model parameters
                                             relation_labels=input_reader.relation_label_count,
                                             entity_labels=input_reader.entity_label_count,
-                                            beam_size = self.args.beam_size,
                                             att_hidden = self.args.att_hidden,
-                                            prop_drop=self.args.prop_drop,
-                                            entity_label_embedding=self.args.entity_label_embedding,
-                                            freeze_transformer=self.args.freeze_transformer,
-                                            device=self._device)
-        elif args.model_type == 'bert_ner':
-            model = model_class.from_pretrained(self.args.model_path,
-                                            cache_dir=self.args.cache_path,
-                                            tokenizer= self._tokenizer,
-                                            # SpERT model parameters
-                                            relation_labels=input_reader.relation_label_count,
-                                            entity_labels=input_reader.entity_label_count,
                                             prop_drop=self.args.prop_drop,
                                             entity_label_embedding=self.args.entity_label_embedding,
                                             freeze_transformer=self.args.freeze_transformer,
@@ -252,8 +223,6 @@ class SpERTTrainer(BaseTrainer):
 
         if args.model_type == 'table_filling':
             compute_loss = SpERTLoss(rel_criterion, entity_criterion, model)
-        elif args.model_type == 'bert_ner':
-            compute_loss = NERLoss(rel_criterion, entity_criterion, model)
 
         # evaluate
         self._eval(model, compute_loss, input_reader.get_dataset(dataset_label), input_reader)
@@ -307,11 +276,6 @@ class SpERTTrainer(BaseTrainer):
                     batch.token_masks, start_labels, entity_labels, batch.entity_masks, allow_rel)
                 # entity_logits = util.beam_repeat(entity_logits, self.args.beam_size)
                 loss = compute_loss.compute(entity_logits, entity_labels, rel_logits, rel_labels, batch.start_token_masks) 
-            elif self.args.model_type == 'bert_ner':
-                entity_logits, rel_logits = model(batch.encodings, batch.ctx_masks)
-                entity_labels = batch.entity_labels
-                token_mask = batch.start_token_masks.sum(dim=1)
-                loss = compute_loss.compute(entity_logits, entity_labels, token_mask) 
                            
             # logging
             iteration += 1
@@ -331,14 +295,9 @@ class SpERTTrainer(BaseTrainer):
             model = model.module
 
         # create evaluator
-        if dataset.label == 'valid':
-            evaluator = Evaluator(dataset, input_reader, self._tokenizer,
-                                  self.args.model_type, self.args.example_count,
-                                  self._examples_path, epoch, dataset.label, max_epoch=self.args.epochs)
-        else:
-            evaluator = Evaluator(dataset, input_reader, self._tokenizer,
-                                  self.args.model_type, self.args.example_count,
-                                  self._examples_path, epoch, dataset.label)
+        evaluator = Evaluator(dataset, input_reader, self._tokenizer,
+                            self.args.model_type, self.args.example_count,
+                            self._examples_path, epoch, dataset.label)
 
         # create batch sampler
         sampler = self._sampler.create_eval_sampler(dataset, self.args.eval_batch_size, 
@@ -358,20 +317,14 @@ class SpERTTrainer(BaseTrainer):
             
                 if self.args.model_type == 'table_filling':
                     entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.start_token_masks)
-                    entity_scores, entity_preds, rel_clf = model(batch.encodings, batch.ctx_masks, entity_labels, batch.token_masks, evaluate=True) 
+                    entity_scores, entity_preds, rel_clf = model(batch.encodings, batch.ctx_masks, batch.token_masks, evaluate=True) 
                     loss = torch.tensor([1])
                     # loss = compute_loss.compute(entity_scores, entity_labels, rel_clf, rel_labels, batch.start_token_masks, is_eval=True)  
                     # entity_clf = util.beam_repeat(entity_clf, self.args.beam_size)
                     # rel_clf = util.beam_repeat(rel_clf, self.args.beam_size)
+                    # print("predssss:", entity_preds)
                     evaluator.eval_batch(entity_preds, entity_scores, rel_clf, batch, entity_labels)
 
-                elif self.args.model_type == 'bert_ner':
-                    entity_clf, rel_clf = model(batch.encodings, batch.ctx_masks, evaluate=True) 
-
-                    entity_labels = batch.entity_labels
-                    token_mask = batch.start_token_masks.sum(dim=1)
-                    loss = compute_loss.compute(entity_clf, entity_labels, token_mask, is_eval=True) 
-                    evaluator.eval_batch(None, entity_clf, rel_clf, batch, entity_labels)
 
         global_iteration = epoch * updates_epoch + iteration
         ner_eval, rel_eval, rel_ner_eval = evaluator.compute_scores()

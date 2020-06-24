@@ -375,7 +375,7 @@ def _create_eval_sample(doc, context_size):
     entity_masks.fill_diagonal_(1)
 
 
-    for e in doc.pred_entities:
+    for e in doc.entities:
         # print(e.phrase, e.tokens)
         entity_types.append(e.entity_type)
         entity_labels.append(create_entity_mask(*e.span, context_size).to(torch.long))       
@@ -383,7 +383,7 @@ def _create_eval_sample(doc, context_size):
         for i, t in enumerate(e.tokens):
             entity_labels[-1][t.span_start:t.span_end] = e.entity_labels[i].index
 
-    if not doc.pred_entities: # no entities included
+    if not doc.entities: # no entities included
         entity_types = torch.tensor([], dtype=torch.long)
         entity_labels = torch.zeros(context_size, dtype=torch.long)
     else:

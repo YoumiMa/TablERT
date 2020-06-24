@@ -68,7 +68,6 @@ class Evaluator:
                 entity_scores = batch_entity_scores[i]
                 rel_clf = torch.softmax(batch_rel_clf[i], dim=1)
 
-
                 pred_entities = self._convert_pred_entities_start(entity_preds, entity_scores, 
                     batch.token_masks[i])
                 # print(pred_entities)
@@ -97,87 +96,8 @@ class Evaluator:
 
                 pred_relations = []
 
-         
-            if self._epoch + 1 >= self._max_epoch:
-                
-                self.update_bio_file(entity_preds) if self._model_type == 'table_filling' else self.update_bio_file_(entity_preds, batch.start_token_masks[i])
-
             self._pred_entities.append(pred_entities)
             self._pred_relations.append(pred_relations)  
-
-
-    def update_bio_file_(self, preds: torch.tensor, token_mask: torch.tensor):
-        
-        pred_tags = []
-        # print(token_mask)
-        summed_mask = token_mask.sum(dim=0)
-        # print(preds)
-        # print(summed_mask)
-        for i in range(summed_mask.shape[-1]):
-            if summed_mask[i]:
-                tag = self._input_reader._idx2entity_label[preds[i-1].item()].short_name
-                if tag.startswith('U'):
-                    tag = 'B' + tag[1:]
-                elif tag.startswith('L'):
-                    if pred_tags == [] or pred_tags[-1][1:] != tag[1:]:
-                        tag = 'B' + tag[1:]
-                    else:
-                        tag = 'I' + tag[1:]
-                pred_tags.append(tag)
-        # print(pred_tags)
-        self._input_reader._bio_file['preds'].append(pred_tags)
-        return 
-
-    def update_bio_file(self, preds: torch.tensor):
-        
-        pred_tags = []
-        
-        for i in range(preds.shape[-1]):
-            tag = self._input_reader._idx2entity_label[preds[i].item()].short_name
-            # if tag.startswith('U'):
-            #     tag = 'B' + tag[1:]
-            # elif tag.startswith('L'):
-            #     if pred_tags == [] or pred_tags[-1][1:] != tag[1:]:
-            #         tag = 'B' + tag[1:]
-            #     else:
-            #         tag = 'I' + tag[1:]
-            pred_tags.append(tag)
-  
-        self._input_reader._bio_file['preds'].append(pred_tags)
-        return 
-
-
-    def _write_bio_file(self):
-
-        file_path = self._input_reader._bio_file['path']
-        tokens = self._input_reader._bio_file['tokens']
-        tags = self._input_reader._bio_file['tags']
-        preds = self._input_reader._bio_file['preds']
-
-        contents = []
-        print("tags:", tags, "preds:", preds)
-
-        for t in range(len(tokens)):
-            contents.append([list(i) for i in zip(tokens[t], tags[t], preds[t])])
-
-        doc_wise_splited = [split_after(i, lambda x: x[0] == '[SEP]') for i in contents]
-
-        output_dicts = []
-        for i, doc in enumerate(doc_wise_splited):
-            print(i, doc)
-            for sentence in doc:
-                tokens = [t[0] for t in sentence]
-                tags = [t[1] for t in sentence]
-                preds = [t[2] for t in sentence]
-
-                # print(tokens,tags,preds)
-                output_dicts.append({"tokens": tokens, "tags": tags, "preds": preds, "orig_id": i})
-
-
-        with codecs.open(file_path, "w") as w:
-            json.dump(output_dicts, w)
-
-        return
 
     def compute_scores(self):
 
@@ -189,9 +109,7 @@ class Evaluator:
         # print("pred:", self._pred_entities)
         gt, pred = self._convert_by_setting(self._gt_entities, self._pred_entities, include_entity_types=True)
         ner_eval = self._score(gt, pred, print_results=True)
-        
-        if self._epoch + 1 >= self._max_epoch:
-            self._write_bio_file()
+    
 
 
         print("")

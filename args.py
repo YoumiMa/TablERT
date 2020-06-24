@@ -6,10 +6,8 @@ def _add_common_args(arg_parser):
 
     # Input
     arg_parser.add_argument('--types_path', type=str, help="Path to type specifications")
-    arg_parser.add_argument('--bio_file_path', type=str, help="Path to evaluation output of BIO tagging scheme")
     # Preprocessing
     arg_parser.add_argument('--tokenizer_path', type=str, help="Path to tokenizer")
-    arg_parser.add_argument('--max_span_size', type=int, default=10, help="Maximum size of spans")
     arg_parser.add_argument('--lowercase', action='store_true', default=False,
                             help="If true, input is lowercased during preprocessing")
     arg_parser.add_argument('--sampling_processes', type=int, default=4,
@@ -31,13 +29,8 @@ def _add_common_args(arg_parser):
     arg_parser.add_argument('--cpu', action='store_true', default=False,
                             help="If true, train/evaluate on CPU even if a CUDA device is available")
     arg_parser.add_argument('--eval_batch_size', type=int, default=1, help="Evaluation batch size")
-    arg_parser.add_argument('--beam_size', type=int, default=3, help="Beam size for beam search")
-    arg_parser.add_argument('--max_pairs', type=int, default=1000,
-                            help="Maximum entity pairs to process during training/evaluation")
-    arg_parser.add_argument('--rel_filter_threshold', type=float, default=0.4, help="Filter threshold for relations")
     arg_parser.add_argument('--att_hidden', type=int, default=5, help="Dimensionality of size embedding")
     arg_parser.add_argument('--entity_label_embedding', type=int, default=50, help="Dimensionality of entity label embedding")
-    arg_parser.add_argument('--rnn_hidden', type=int, default=100,  help="Dimensionality of rnn cell output")
     arg_parser.add_argument('--prop_drop', type=float, default=0.1, help="Probability of dropout used in SpERT")
     arg_parser.add_argument('--freeze_transformer', action='store_true', default=False, help="Freeze BERT weights")
 
