@@ -265,7 +265,6 @@ class SpERTTrainer(BaseTrainer):
                 entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.start_token_masks)
                 entity_logits, rel_logits = model(batch.encodings, batch.ctx_masks, 
                     batch.token_masks, start_labels, entity_labels, batch.entity_masks, allow_rel)
-                print(entity_logits[0].shape)
                 loss = compute_loss.compute(entity_logits, entity_labels, rel_logits, rel_labels, batch.start_token_masks) 
                            
             # logging
