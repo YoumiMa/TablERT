@@ -328,9 +328,6 @@ def _create_train_sample(doc, context_size, shuffle = False):
         rel_types = torch.tensor([], dtype=torch.long)
     else:
         rel_types = torch.tensor([r.index for r in rel_types], dtype=torch.long)
-        # rel_labels = torch.tensor(sum(rel_labels, []))
-        # rel_labels = util.padded_stack(rel_labels)
-    # print(rel_labels, rel_labels.shape)
 
     # create tensors
     # token indices
@@ -397,7 +394,7 @@ def _create_eval_sample(doc, context_size):
         s1, s2 = rel.head_entity.span, rel.tail_entity.span
         rel_spans.append((s1, s2))
         rel_types.append(rel.relation_type)
-        # rel_labels[rel.tail_entity.span]
+
         former = rel.head_entity if s1[0] < s2[0] else rel.tail_entity
         latter = rel.tail_entity if s1[0] < s2[0] else rel.head_entity
         for i in range(former.span[0], former.span[1]):

@@ -11,11 +11,7 @@ from spert.entities import Document, Dataset, EntityLabel, EntityType
 from spert.input_reader import JsonInputReader
 from spert.opt import jinja2
 from spert.sampling import EvalTensorBatch
-from spert.beam import BeamSearch
-from spert.util import split_after
 
-
-from functools import reduce
 
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 
@@ -70,31 +66,12 @@ class Evaluator:
 
                 pred_entities = self._convert_pred_entities_start(entity_preds, entity_scores, 
                     batch.token_masks[i])
-                # print(pred_entities)
                 ##### Relation.
                 rel_scores, rel_preds = rel_clf.squeeze(0).max(dim=0)
-                # rel_scores = batch_rel_clf[i]
-                # rel_preds = batch_rel_preds[i]
-                # print("rel_clf:", rel_clf.shape)
-                # print("preds:", rel_preds)
-                # print("scores:", rel_scores.shape)
 
                 # pred_relations = []
                 pred_relations = self._convert_pred_relations_(rel_preds, rel_scores, 
                                                                 pred_entities, batch.token_masks[i])
-                # print("gold:", self._gt_entities)
-                # print("pred:", pred_entities)
-            elif self._model_type == 'bert_ner':
-
-                entity_scores, entity_preds = torch.max(batch_entity_scores[i], dim=1)
-                entity_scores = entity_scores[1:-1]
-                entity_preds = entity_preds[1:-1]
-                # print("entity_scores:", entity_scores)            
-                ### training (word level):
-                pred_entities = self._convert_pred_entities_(entity_preds, entity_scores, 
-                    batch.token_masks[i])
-
-                pred_relations = []
 
             self._pred_entities.append(pred_entities)
             self._pred_relations.append(pred_relations)  
@@ -105,8 +82,6 @@ class Evaluator:
         print("")
         print("--- Entities (NER) ---")
         print("")
-        # print("gt:", self._gt_entities)
-        # print("pred:", self._pred_entities)
         gt, pred = self._convert_by_setting(self._gt_entities, self._pred_entities, include_entity_types=True)
         ner_eval = self._score(gt, pred, print_results=True)
     
@@ -116,10 +91,7 @@ class Evaluator:
         print("--- Relations ---")
         print("")
         print("Without NER")
-        # print("gt relations:", self._gt_relations)
         gt, pred = self._convert_by_setting(self._gt_relations, self._pred_relations, include_entity_types=False)
-        # print("gt:", [r[0][2].verbose_name for r in gt])
-        # print("pred:", [r[0][2].verbose_name for r in pred])
         rel_eval = self._score(gt, pred, print_results=True)
 
         print("")
@@ -196,17 +168,15 @@ class Evaluator:
             # convert ground truth relations and entities for precision/recall/f1 evaluation
             sample_gt_relations = [rel.as_tuple() for rel in gt_relations]
             sample_gt_entities = [entity.as_tuple_span() for entity in gt_entities]
-            # print(sample_gt_relations)
             self._gt_relations.append(sample_gt_relations)
             self._gt_entities.append(sample_gt_entities)
-            # print("gold:", self._gt_relations)
+
 
     def _convert_pred_entities_end(self, pred_types: torch.tensor, pred_scores: torch.tensor, 
                                 token_mask: torch.tensor, 
                                 start_labels: List[int], end_labels: List[int]):
         #### for word-level.
         converted_preds = []
-        # print(pred_types)
         
         encoding_length = token_mask.shape[0]
         curr_type = 0
@@ -214,9 +184,7 @@ class Evaluator:
 
         for i in range(pred_types.shape[0]):
             curr_token = token_mask[i+1][1:encoding_length-1].nonzero()
-            # print("curr_token:",curr_token)
             type_idx = pred_types[i].item()
-            # print("entity type:", curr_type)
             score = pred_scores[i].item()
             curr_type = math.ceil(type_idx/4)
 
@@ -225,7 +193,6 @@ class Evaluator:
                 end = curr_token[-1].item() + 2
                 entity_type = self._input_reader.get_entity_type(curr_type)
                 converted_pred = (start, end, entity_type, score)
-                # print(i, "appended:", converted_pred)
                 converted_preds.append(converted_pred)                
                 start = curr_token[-1].item() + 2
                
@@ -241,11 +208,12 @@ class Evaluator:
 
     def _convert_pred_entities_start(self, pred_types: torch.tensor, pred_scores: torch.tensor, 
                                 token_mask: torch.tensor):
-        #### for word-level.
+
         converted_preds = []
         encoding_length = token_mask.shape[0]
         curr_type = 0
         start = 1
+
         for i in range(pred_types.shape[0]):
             curr_token = token_mask[i+1][1:encoding_length-1].nonzero()
             type_idx = pred_types[i].item()
@@ -254,13 +222,13 @@ class Evaluator:
             is_start = type_idx % 4 == 1 or type_idx % 4 == 2 or type_idx == 0
             
             if is_start and curr_type != 0:
-
+                # every time encounters a start entity, update the entity list once
                 end = curr_token[0].item() + 1
                 converted_pred = (start, end, entity_type, score)
-                # print(i, "appended:", converted_pred)
                 converted_preds.append(converted_pred)                
                 start = curr_token[0].item() + 1              
-
+            
+            # update the BILOU label of current token
             curr_type = math.ceil(type_idx/4)
             entity_type = self._input_reader.get_entity_type(curr_type)  
 
@@ -268,106 +236,18 @@ class Evaluator:
             if type_idx == 0:
                 start = curr_token[-1].item() + 2
         
-        if curr_type != 0:
+        if curr_type != 0: # last word in the sentence is included in an entity span
                 converted_pred = (start, curr_token[-1].item() + 2, entity_type, score)
-                # print(i, "appended:", converted_pred)
                 converted_preds.append(converted_pred)             
 
 
-        # exit(-1)
-        return converted_preds
-
-    def _convert_pred_entities(self, pred_types: torch.tensor, pred_scores: torch.tensor, 
-                                token_mask: torch.tensor, 
-                                start_labels: List[int], end_labels: List[int]):
-        #### for word-level.
-        converted_preds = []
-        # print(pred_types)
-        
-        encoding_length = token_mask.shape[0]
-        curr_type = 0
-        start = 1
-
-        for i in range(pred_types.shape[0]):
-            curr_token = token_mask[i+1][1:encoding_length-1].nonzero()
-            type_idx = pred_types[i].item()
-            # print("entity type:", curr_type)
-            score = pred_scores[i].item()
-            
-            if (math.ceil(type_idx/4) != curr_type or type_idx in start_labels) and curr_type != 0:
-
-                end = curr_token[0].item() + 1
-                converted_pred = (start, end, entity_type, score)
-                # print(i, "appended:", converted_pred)
-                converted_preds.append(converted_pred)                
-                start = curr_token[0].item() + 1
-               
-
-            curr_type = math.ceil(type_idx/4)
-            entity_type = self._input_reader.get_entity_type(curr_type)
-
-            if type_idx == 0:
-                start = curr_token[-1].item() + 2
-        
-        if curr_type != 0:
-                converted_pred = (start, curr_token[-1].item() + 2, entity_type, score)
-                # print(i, "appended:", converted_pred)
-                converted_preds.append(converted_pred)             
-
-
-        # exit(-1)
-        return converted_preds
-
-
-    def _convert_pred_entities_(self, pred_types: torch.tensor, pred_scores: torch.tensor, 
-        token_mask: torch.tensor):
-        converted_preds = []
-        # print(pred_types)
-        # print("pred types:", pred_types)
-        curr_type = 0
-        start = 1
-        encoding_length = token_mask.shape[0]
-        context_size = token_mask.shape[1]
-        for i in range(encoding_length):
-            if torch.any(token_mask[i][1:context_size-1]): # a token here
-                curr_token = token_mask[i][1:context_size-1].nonzero()
-                # print("curr token:", curr_token)
-                type_ids = pred_types[token_mask[i][1:context_size-1]]
-                # print("type ids:", type_ids)
-                score = pred_scores[token_mask[i][1:context_size-1]][0].item()
-
-                type_idx = type_ids[0].item()
-                is_start = type_idx % 4 == 1 or type_idx % 4 == 2 or type_idx == 0
-
-                if is_start and curr_type != 0:
-
-                    end = curr_token[0].item() + 1
-                    converted_pred = (start, end, entity_type, score)
-                    # print(i, "appended:", start, end, entity_type.short_name)
-                    converted_preds.append(converted_pred)                
-                    start = curr_token[0].item() + 1              
-
-                curr_type = math.ceil(type_ids[0].item()/4)
-                # print("curr type:", curr_type)
-                entity_type = self._input_reader.get_entity_type(curr_type)
-
-                if type_ids[0] == 0:
-                    start = curr_token[-1].item() + 2  
-        
-        if curr_type != 0 and curr_token[-1].item() + 2 <= encoding_length:
-            converted_pred = (start, curr_token[-1].item()+2 , entity_type, score)
-            # print("final appended:", start, curr_token[-1].item()+2, entity_type.short_name)
-            converted_preds.append(converted_pred)            
-
-        # print('???????',[preds[2].index for preds in converted_preds])
         return converted_preds
 
     def _convert_pred_relations_(self, pred_types: torch.tensor, pred_scores: torch.tensor, 
                                 pred_entities: List[tuple], token_mask: torch.tensor):
         converted_rels = []
         pred_types = torch.triu(pred_types, diagonal=1)
-        # print(pred_scores)
-        # exit(0)
+
         for i,j in pred_types.nonzero():
             label_idx = pred_types[i,j].float()
             pred_rel_type = self._input_reader.get_relation_type(torch.ceil(label_idx/2).item())
@@ -377,12 +257,10 @@ class Evaluator:
             else: # L-X
                 head_idx = j 
                 tail_idx = i
-            # print(head_idx, tail_idx, label_idx)
-            # print(token_mask)
+
             head_entity = self._find_entity(head_idx + 1, token_mask, pred_entities)
-            # print("head entity:", head_entity)
             tail_entity = self._find_entity(tail_idx + 1, token_mask, pred_entities)
-            # print("tail entity:", tail_entity)
+
             if head_entity == None or tail_entity == None:
                 continue
             pred_head_type = head_entity[2]
@@ -398,43 +276,6 @@ class Evaluator:
         return converted_rels
 
 
-
-
-
-    def _convert_pred_relations(self, pred_types: List[torch.tensor], pred_scores: torch.tensor, 
-                                pred_entities: List[tuple], token_mask: torch.tensor):
-        converted_rels = []
-        # print("pred types:", pred_types)
-        for i in range(len(pred_types)):
-            for j in range(pred_types[i].shape[-1]):
-                label_idx = pred_types[i][j].float()
-                if label_idx != 0:    
-                    pred_rel_type = self._input_reader.get_relation_type(torch.ceil(label_idx/2).item())
-                    if label_idx in self._input_reader._right_rel_label: # R-X
-                        head_idx = i 
-                        tail_idx = i + j + 1
-                    else: # L-X
-                        head_idx = i + j + 1
-                        tail_idx = i
-                    # print(head_idx, tail_idx, label_idx)
-                    head_entity = self._find_entity(head_idx + 1, token_mask, pred_entities)
-                    # print("head entity:", head_entity)
-                    tail_entity = self._find_entity(tail_idx + 1, token_mask, pred_entities)
-                    # print("tail entity:", tail_entity)
-                    if head_entity == None or tail_entity == None:
-                        continue
-                    pred_head_type = head_entity[2]
-                    pred_tail_type = tail_entity[2]
-                    score = pred_scores[i].item()
-
-                    head_start, head_end = head_entity[0], head_entity[1]
-                    tail_start, tail_end = tail_entity[0], tail_entity[1]
-                    converted_rel = ((head_start, head_end, pred_head_type),
-                                     (tail_start, tail_end, pred_tail_type), pred_rel_type, score)
-
-                    converted_rels.append(converted_rel)
-        # print(converted_rels)
-        return converted_rels
 
     def _find_entity(self, idx, token_mask, entities):
         span = token_mask[idx].nonzero().squeeze(0)
@@ -498,9 +339,6 @@ class Evaluator:
                 else:
                     pred_flat.append(0)
 
-        # print("gt_flat:", gt_flat)
-        # print("pred_flat:", pred_flat)
-        # print("types:", [t.short_name for t in types])
         metrics = self._compute_metrics(gt_flat, pred_flat, types, print_results)
         return metrics
 
@@ -598,7 +436,6 @@ class Evaluator:
         fp = sorted(fp, key=lambda p: p[-1], reverse=True)
 
         text = self._prettify(self._text_encoder.decode(encoding))
-        # print("ttttpppp:", tp)
         return dict(text=text, tp=tp, fn=fn, fp=fp, precision=precision, recall=recall, f1=f1, length=len(doc.tokens))
 
     def _entity_to_html(self, entity: Tuple, encoding: List[int]):
@@ -656,6 +493,5 @@ class Evaluator:
         with open(os.path.join(SCRIPT_PATH, template_path)) as f:
             template = jinja2.Template(f.read())
 
-        # print("example:", examples)
         # write to disc
         template.stream(examples=examples).dump(file_path)

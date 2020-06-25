@@ -13,7 +13,7 @@ from spert import models
 from spert.entities import Dataset
 from spert.evaluator import Evaluator
 from spert.input_reader import JsonInputReader, BaseInputReader
-from spert.loss import SpERTLoss, NERLoss, Loss
+from spert.loss import TableLoss, Loss
 from spert.beam import BeamSearch
 from tqdm import tqdm
 from spert.sampling import Sampler
@@ -32,7 +32,6 @@ def align_label(entity: torch.tensor, rel: torch.tensor, token_mask: torch.tenso
 
     batch_size = entity.shape[0]
     token_count = token_mask.to(torch.bool).sum()
-    # print("entity:", entity)
     batch_entity_labels = []
     batch_rel_labels = []
     for b in range(batch_size):
@@ -82,7 +81,6 @@ class SpERTTrainer(BaseTrainer):
 
         train_dataset = input_reader.get_dataset(train_label)
 
-        # print("docs:", train_dataset.documents)
         train_sample_count = train_dataset.document_count
         updates_epoch = train_sample_count // args.train_batch_size
         updates_total = updates_epoch * args.epochs
@@ -112,11 +110,6 @@ class SpERTTrainer(BaseTrainer):
                                             freeze_transformer=self.args.freeze_transformer,
                                             device=self._device)
 
-        # SpERT is currently optimized on a single GPU and not thoroughly tested in a multi GPU setup
-        # If you still want to train SpERT on multiple GPUs, uncomment the following lines
-        # # parallelize model
-        # if self._device.type != 'cpu':
-        #     model = torch.nn.DataParallel(model)
 
         model.to(self._device)
 
@@ -150,7 +143,7 @@ class SpERTTrainer(BaseTrainer):
         entity_criterion = torch.nn.CrossEntropyLoss(reduction='none')
 
         if args.model_type == 'table_filling':
-            compute_loss = SpERTLoss(rel_criterion, entity_criterion, model, optimizer, scheduler, args.max_grad_norm)
+            compute_loss = TableLoss(rel_criterion, entity_criterion, model, optimizer, scheduler, args.max_grad_norm)
 
         # eval validation set
         if args.init_eval:
@@ -222,7 +215,7 @@ class SpERTTrainer(BaseTrainer):
         entity_criterion = torch.nn.CrossEntropyLoss(reduction='none')
 
         if args.model_type == 'table_filling':
-            compute_loss = SpERTLoss(rel_criterion, entity_criterion, model)
+            compute_loss = TableLoss(rel_criterion, entity_criterion, model)
 
         # evaluate
         self._eval(model, compute_loss, input_reader.get_dataset(dataset_label), input_reader)
@@ -258,23 +251,21 @@ class SpERTTrainer(BaseTrainer):
             
             model.train()
             batch = batch.to(self._device)
-            # print("iteration:", global_iteration)
+
             if global_iteration < steps_before_rel:
                 # do entity detection only.
                 allow_rel = False
             else:
                 allow_rel = True
 
-            # print("current batch:", batch.encodings)
 
 
 
             if self.args.model_type == 'table_filling':
-                # print("token masks:", batch.token_masks)
                 entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.start_token_masks)
                 entity_logits, rel_logits = model(batch.encodings, batch.ctx_masks, 
                     batch.token_masks, start_labels, entity_labels, batch.entity_masks, allow_rel)
-                # entity_logits = util.beam_repeat(entity_logits, self.args.beam_size)
+                print(entity_logits[0].shape)
                 loss = compute_loss.compute(entity_logits, entity_labels, rel_logits, rel_labels, batch.start_token_masks) 
                            
             # logging
@@ -313,16 +304,11 @@ class SpERTTrainer(BaseTrainer):
                 batch = batch.to(self._device)
 
                 # run model (forward pass)
-                # print(batch.ctx_masks)
             
                 if self.args.model_type == 'table_filling':
                     entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.start_token_masks)
-                    entity_scores, entity_preds, rel_clf = model(batch.encodings, batch.ctx_masks, batch.token_masks, evaluate=True) 
-                    loss = torch.tensor([1])
-                    # loss = compute_loss.compute(entity_scores, entity_labels, rel_clf, rel_labels, batch.start_token_masks, is_eval=True)  
-                    # entity_clf = util.beam_repeat(entity_clf, self.args.beam_size)
-                    # rel_clf = util.beam_repeat(rel_clf, self.args.beam_size)
-                    # print("predssss:", entity_preds)
+                    entity_logits, entity_scores, entity_preds, rel_clf = model(batch.encodings, batch.ctx_masks, batch.token_masks, evaluate=True) 
+                    loss = compute_loss.compute(entity_logits, entity_labels, rel_clf, rel_labels, batch.start_token_masks, is_eval=True)  
                     evaluator.eval_batch(entity_preds, entity_scores, rel_clf, batch, entity_labels)
 
 

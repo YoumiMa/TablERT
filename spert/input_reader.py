@@ -241,7 +241,6 @@ class JsonInputReader(BaseInputReader):
             token_encoding = self._tokenizer.encode(token_phrase, add_special_tokens=False)
             span_start, span_end = (len(doc_encoding), len(doc_encoding) + len(token_encoding))
             token = dataset.create_token(i, span_start, span_end, token_phrase)
-            # print("encodings:", self._tokenizer.convert_ids_to_tokens(token_encoding))
             doc_tokens.append(token)
             doc_encoding += token_encoding
         doc_encoding += [self._tokenizer.convert_tokens_to_ids('[SEP]')]
@@ -261,12 +260,11 @@ class JsonInputReader(BaseInputReader):
                     entity_type = self._entity_types[jtag[2:]]
                     end = idx + 1
                     tokens = doc_tokens[start:end]
-                    # print(start, end, [t.phrase for t in doc_tokens])
                     phrase = " ".join([t.phrase for t in tokens])
                     entity = dataset.create_entity(entity_type, entity_labels, tokens, phrase)
                     entities.append(entity)
                     entity_labels = []
-        # print('='*50, [e.entity_labels[0].short_name for e in entities])
+
         return entities
 
     def _parse_pred_entities(self, jpreds, doc_tokens, dataset) -> List[Entity]:
@@ -283,12 +281,12 @@ class JsonInputReader(BaseInputReader):
                     entity_type = self._entity_types[jpred[2:]]
                     end = idx + 1
                     tokens = doc_tokens[start:end]
-                    # print(start, end, [t.phrase for t in doc_tokens])
+
                     phrase = " ".join([t.phrase for t in tokens])
                     entity = dataset.create_pred_entity(entity_type, entity_labels, tokens, phrase)
                     entities.append(entity)
                     entity_labels = []
-        # print('='*50, [e.entity_labels[0].short_name for e in entities])
+
         return entities
 
 
@@ -306,7 +304,6 @@ class JsonInputReader(BaseInputReader):
             else:
                 relation_label = self._relation_labels['L-' + jrelation['type']]
             
-            # print([e.phrase for e in entities],head_idx, tail_idx)
             # create relation
             head = entities[head_idx]
             tail = entities[tail_idx]
