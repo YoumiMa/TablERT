@@ -23,11 +23,14 @@ Optional
 
 We provide processed CoNLL04 [2] datasets along with the software in folder `data/datasets`. We follow the data splits of [1] and [3].
 
+## Training
+
 To train a model on CoNLL04 train set and development set, run
 
 ```
 python ./table_filling.py train --config configs_example/train_conll04.conf
 ```
+## Evaluation
 
 To evalute a model on CoNLL04 test set, fill in the field `model_path` in `configs_example/eval_conll04.conf` with the directory of the model and run
 
