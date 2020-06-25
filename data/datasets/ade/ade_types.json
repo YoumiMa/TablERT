@@ -1,2 +1,0 @@
-{"entities": {"Adverse-Effect": {"short": "AE", "verbose": "Adverse-Effect"}, "Drug": {"short": "Drug", "verbose": "Drug"}}, 
-"relations": {"Adverse-Effect": {"short": "AE", "verbose": "Adverse-Effect", "symmetric": false}}}
