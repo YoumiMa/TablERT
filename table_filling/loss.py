@@ -39,7 +39,6 @@ class TableLoss(Loss):
                     continue
                 batch_loss = self._rel_criterion(batch_logits, batch_labels.unsqueeze(0))
 
-                entity_pred = entity_logits[b].argmax(dim=2).squeeze(0)
                 batch_loss_masked = torch.triu(batch_loss, diagonal=1)
 
                 rel_loss += batch_loss_masked.sum() 

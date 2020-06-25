@@ -81,8 +81,7 @@ class TableF(BertPreTrainedModel):
 
 
     def _forward_relation(self, h: torch.tensor,  entity_preds: torch.tensor, 
-                          entity_mask: torch.tensor, gold_entity: torch.tensor,
-                          is_eval: bool = False):
+                          entity_mask: torch.tensor, is_eval: bool = False):
 
 
         entity_labels = entity_preds.unsqueeze(0)
@@ -137,7 +136,7 @@ class TableF(BertPreTrainedModel):
             # curr word repr.
             curr_word_repr = word_h_pooled[1:-1].contiguous()
 
-            curr_rel_logits = self._forward_relation(curr_word_repr, entity_preds.squeeze(0) , diag_entity_mask, gold_entity[batch])
+            curr_rel_logits = self._forward_relation(curr_word_repr, entity_preds.squeeze(0) , diag_entity_mask)
             all_rel_logits.append(curr_rel_logits)
 
         if allow_rel:
@@ -170,7 +169,8 @@ class TableF(BertPreTrainedModel):
             curr_word_reprs = word_h_pooled[1:-1].contiguous()
 
             entity_masks = torch.zeros((num_steps + 2, num_steps + 2), dtype = torch.bool).fill_diagonal_(1).to(self._device)
-
+            entity_masks[:, 0] = 0
+            
             entity_preds = torch.zeros((num_steps + 1, 1), dtype=torch.long).to(self._device)
             entity_logits = []
             entity_scores = torch.zeros((num_steps, 1), dtype=torch.float).to(self._device)
@@ -210,7 +210,7 @@ class TableF(BertPreTrainedModel):
             all_entity_preds.append(torch.t(entity_preds[1:].squeeze(-1)))
 
             # Relation classification.
-            curr_rel_logits = self._forward_relation(curr_word_reprs, entity_preds[1:].squeeze(-1), entity_masks, None, True)
+            curr_rel_logits = self._forward_relation(curr_word_reprs, entity_preds[1:].squeeze(-1), entity_masks, True)
             all_rel_logits.append(curr_rel_logits)
 
 
