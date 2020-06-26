@@ -18,7 +18,7 @@ from typing import List
 
 
 class TableF(BertPreTrainedModel):
-    """ Span-based model to jointly extract entities and relations """
+    """ table filling model to jointly extract entities and relations """
 
     def __init__(self, config: BertConfig, tokenizer: BertTokenizer,
                  relation_labels: int, entity_labels: int,
