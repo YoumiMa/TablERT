@@ -21,7 +21,7 @@ Optional
 
 # Examples
 
-We provide processed CoNLL04 [2] datasets along with the software in folder `data/datasets/`. We follow the data splits of [1] and [3].
+We assume the processed CoNLL04 [2] datasets are already located in the folder `data/datasets/`, following the data split of [1] and [3]. (not provided along with this software)
 
 ## Training
 
