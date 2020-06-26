@@ -63,7 +63,6 @@ class TableF(BertPreTrainedModel):
 
         # prev entity repr.
         prev_entity = torch.tril(entity_mask, diagonal=0)
-        prev_entity[:, 0] = 0
 
         prev_entity_h = word_h_pooled.repeat(prev_entity.shape[0], 1, 1) * prev_entity.unsqueeze(-1)
         prev_entity_pooled = prev_entity_h.max(dim=1)[0]
@@ -169,8 +168,7 @@ class TableF(BertPreTrainedModel):
             curr_word_reprs = word_h_pooled[1:-1].contiguous()
 
             entity_masks = torch.zeros((num_steps + 2, num_steps + 2), dtype = torch.bool).fill_diagonal_(1).to(self._device)
-            entity_masks[:, 0] = 0
-            
+
             entity_preds = torch.zeros((num_steps + 1, 1), dtype=torch.long).to(self._device)
             entity_logits = []
             entity_scores = torch.zeros((num_steps, 1), dtype=torch.float).to(self._device)

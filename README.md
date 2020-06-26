@@ -25,7 +25,7 @@ We provide processed CoNLL04 [2] datasets along with the software in folder `dat
 
 ## Training
 
-To train a model on CoNLL04 train set and development set, run
+To train a model on CoNLL04 train set and evaluate on CoNLL04 development set, run
 
 ```
 python ./table_filling.py train --config configs_example/train_conll04.conf
