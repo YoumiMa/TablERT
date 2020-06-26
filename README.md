@@ -1,10 +1,10 @@
-# Named Entity Recognition and Relation Extraction using Table Filling Enhanced by Contextualized Representations
-This is the PyTorch code for conference submission 'Named Entity Recognition and Relation Extraction using Table Filling Enhanced by Contextualized Representations'.
+# Named Entity Recognition and Relation Extraction using Enhanced Table Filling by Contextualized Representations
+This is the PyTorch code for conference submission 'Named Entity Recognition and Relation Extraction using Enhanced Table Filling by Contextualized Representations'.
 The general framework of this software adopts that of [SpERT](https://github.com/markus-eberts/spert) [1].
 # Setup
 
 ## Requirements
-Requirments are listed in `requirements.txt`.
+Requirments are listed in `requirements.txt`, same as SpERT [1].
 
 Required
 - Python 3.5+
@@ -21,7 +21,7 @@ Optional
 
 # Examples
 
-We provide processed CoNLL04 [2] datasets along with the software in folder `data/datasets`. We follow the data splits of [1] and [3].
+We provide processed CoNLL04 [2] datasets along with the software in folder `data/datasets/`. We follow the data splits of [1] and [3].
 
 ## Training
 
