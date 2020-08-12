@@ -1,0 +1,178 @@
+--------------------------------------------------
+Config:
+{'label': 'wnut2020_tf', 'model_type': 'table_filling', 'model_path': 'bert-base-cased', 'tokenizer_path': 'bert-base-cased', 'train_path': 'data/datasets/wnut2020/wnut2020_train.json', 'valid_path': 'data/datasets/wnut2020/wnut2020_test.json', 'types_path': 'data/datasets/wnut2020/wnut2020_types.json', 'train_batch_size': '32', 'eval_batch_size': '32', 'epochs': '30', 'lr': '5e-5', 'lr_warmup': '0.2', 'scheduler': 'cosine_warmup', 'num_cycles': '2.0', 'weight_decay': '0.01', 'max_grad_norm': '1.0', 'before_rel': '0.', 'entity_label_embedding': '50', 'att_hidden': '20', 'prop_drop': '0.3', 'store_examples': 'true', 'sampling_processes': '0', 'sampling_limit': '0', 'final_eval': 'true', 'log_path': 'data/log/', 'save_path': 'data/save/', 'save_best': 'false'}
+Repeat 1 times
+--------------------------------------------------
+Iteration 0
+--------------------------------------------------
+2020-07-01 12:53:55,002 [MainThread  ] [INFO ]  loading file https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-cased-vocab.txt from cache at /home/ma.y/.cache/torch/transformers/5e8a2b4893d13790ed4150ca1906be5f7a03d6c4ddf62296c383f6db42814db2.e13dbb970cb325137104fb2e5f36fe865f27746c6b526f6352861b1980eb80b1
+2020-07-01 12:53:55,040 [MainThread  ] [INFO ]  Datasets: data/datasets/wnut2020/wnut2020_train.json, data/datasets/wnut2020/wnut2020_test.json
+2020-07-01 12:53:55,040 [MainThread  ] [INFO ]  Model type: table_filling
+Parse dataset 'train':   0%|          | 0/8444 [00:00<?, ?it/s]Parse dataset 'train':   2%|▏         | 149/8444 [00:00<00:05, 1470.86it/s]Parse dataset 'train':   4%|▎         | 305/8444 [00:00<00:05, 1511.34it/s]Parse dataset 'train':   5%|▌         | 430/8444 [00:00<00:05, 1396.17it/s]Parse dataset 'train':   7%|▋         | 580/8444 [00:00<00:05, 1418.76it/s]Parse dataset 'train':   9%|▉         | 767/8444 [00:00<00:05, 1505.65it/s]Parse dataset 'train':  11%|█         | 912/8444 [00:00<00:05, 1496.23it/s]Parse dataset 'train':  13%|█▎        | 1060/8444 [00:00<00:04, 1492.59it/s]Parse dataset 'train':  14%|█▍        | 1199/8444 [00:00<00:04, 1478.89it/s]Parse dataset 'train':  16%|█▌        | 1356/8444 [00:00<00:04, 1488.47it/s]Parse dataset 'train':  18%|█▊        | 1516/8444 [00:01<00:04, 1499.41it/s]Parse dataset 'train':  20%|█▉        | 1666/8444 [00:01<00:04, 1499.26it/s]Parse dataset 'train':  22%|██▏       | 1821/8444 [00:01<00:04, 1502.89it/s]Parse dataset 'train':  23%|██▎       | 1972/8444 [00:01<00:04, 1494.65it/s]Parse dataset 'train':  25%|██▌       | 2120/8444 [00:01<00:04, 1452.27it/s]Parse dataset 'train':  27%|██▋       | 2282/8444 [00:01<00:04, 1462.35it/s]Parse dataset 'train':  29%|██▉       | 2433/8444 [00:01<00:04, 1465.18it/s]Parse dataset 'train':  31%|███       | 2599/8444 [00:01<00:03, 1475.43it/s]Parse dataset 'train':  33%|███▎      | 2758/8444 [00:01<00:03, 1481.34it/s]Parse dataset 'train':  35%|███▍      | 2922/8444 [00:01<00:03, 1489.23it/s]Parse dataset 'train':  36%|███▋      | 3079/8444 [00:02<00:03, 1490.41it/s]Parse dataset 'train':  38%|███▊      | 3234/8444 [00:02<00:03, 1491.87it/s]Parse dataset 'train':  40%|████      | 3404/8444 [00:02<00:03, 1501.04it/s]Parse dataset 'train':  42%|████▏     | 3563/8444 [00:02<00:03, 1502.90it/s]Parse dataset 'train':  44%|████▍     | 3721/8444 [00:02<00:03, 1482.10it/s]Parse dataset 'train':  46%|████▌     | 3884/8444 [00:02<00:03, 1487.39it/s]Parse dataset 'train':  48%|████▊     | 4035/8444 [00:02<00:02, 1488.18it/s]Parse dataset 'train':  50%|████▉     | 4190/8444 [00:02<00:02, 1489.91it/s]Parse dataset 'train':  52%|█████▏    | 4366/8444 [00:02<00:02, 1498.77it/s]Parse dataset 'train':  54%|█████▎    | 4525/8444 [00:03<00:02, 1496.22it/s]Parse dataset 'train':  56%|█████▌    | 4689/8444 [00:03<00:02, 1500.74it/s]Parse dataset 'train':  57%|█████▋    | 4846/8444 [00:03<00:02, 1502.24it/s]Parse dataset 'train':  59%|█████▉    | 5014/8444 [00:03<00:02, 1507.50it/s]Parse dataset 'train':  61%|██████▏   | 5174/8444 [00:03<00:02, 1506.74it/s]Parse dataset 'train':  63%|██████▎   | 5344/8444 [00:03<00:02, 1511.93it/s]Parse dataset 'train':  65%|██████▌   | 5505/8444 [00:03<00:01, 1491.99it/s]Parse dataset 'train':  67%|██████▋   | 5649/8444 [00:03<00:01, 1489.35it/s]Parse dataset 'train':  69%|██████▊   | 5802/8444 [00:03<00:01, 1490.37it/s]Parse dataset 'train':  71%|███████   | 5957/8444 [00:03<00:01, 1491.79it/s]Parse dataset 'train':  72%|███████▏  | 6106/8444 [00:04<00:01, 1489.60it/s]Parse dataset 'train':  74%|███████▍  | 6252/8444 [00:04<00:01, 1481.81it/s]Parse dataset 'train':  76%|███████▌  | 6401/8444 [00:04<00:01, 1481.93it/s]Parse dataset 'train':  78%|███████▊  | 6557/8444 [00:04<00:01, 1483.48it/s]Parse dataset 'train':  79%|███████▉  | 6709/8444 [00:04<00:01, 1484.12it/s]Parse dataset 'train':  82%|████████▏ | 6884/8444 [00:04<00:01, 1489.79it/s]Parse dataset 'train':  84%|████████▎ | 7051/8444 [00:04<00:00, 1493.46it/s]Parse dataset 'train':  86%|████████▌ | 7235/8444 [00:04<00:00, 1500.55it/s]Parse dataset 'train':  88%|████████▊ | 7402/8444 [00:04<00:00, 1503.42it/s]Parse dataset 'train':  90%|████████▉ | 7568/8444 [00:05<00:00, 1486.62it/s]Parse dataset 'train':  91%|█████████▏| 7714/8444 [00:05<00:00, 1476.67it/s]Parse dataset 'train':  93%|█████████▎| 7859/8444 [00:05<00:00, 1476.15it/s]Parse dataset 'train':  95%|█████████▍| 7997/8444 [00:05<00:00, 1472.41it/s]Parse dataset 'train':  97%|█████████▋| 8168/8444 [00:05<00:00, 1476.61it/s]Parse dataset 'train':  99%|█████████▊| 8323/8444 [00:05<00:00, 1477.87it/s]Parse dataset 'train': 100%|██████████| 8444/8444 [00:05<00:00, 1477.73it/s]
+Parse dataset 'valid':   0%|          | 0/2809 [00:00<?, ?it/s]Parse dataset 'valid':   6%|▌         | 164/2809 [00:00<00:01, 1638.16it/s]Parse dataset 'valid':  11%|█▏        | 317/2809 [00:00<00:01, 1582.75it/s]Parse dataset 'valid':  17%|█▋        | 490/2809 [00:00<00:01, 1631.21it/s]Parse dataset 'valid':  23%|██▎       | 643/2809 [00:00<00:01, 1604.00it/s]Parse dataset 'valid':  28%|██▊       | 787/2809 [00:00<00:01, 1569.81it/s]Parse dataset 'valid':  33%|███▎      | 915/2809 [00:00<00:01, 1511.76it/s]Parse dataset 'valid':  37%|███▋      | 1044/2809 [00:00<00:01, 1478.90it/s]Parse dataset 'valid':  43%|████▎     | 1203/2809 [00:00<00:01, 1491.52it/s]Parse dataset 'valid':  48%|████▊     | 1356/2809 [00:00<00:00, 1495.44it/s]Parse dataset 'valid':  53%|█████▎    | 1498/2809 [00:01<00:00, 1384.66it/s]Parse dataset 'valid':  59%|█████▊    | 1645/2809 [00:01<00:00, 1391.04it/s]Parse dataset 'valid':  64%|██████▍   | 1805/2809 [00:01<00:00, 1407.17it/s]Parse dataset 'valid':  69%|██████▉   | 1946/2809 [00:01<00:00, 1406.83it/s]Parse dataset 'valid':  75%|███████▍  | 2099/2809 [00:01<00:00, 1415.02it/s]Parse dataset 'valid':  80%|███████▉  | 2243/2809 [00:01<00:00, 1393.86it/s]Parse dataset 'valid':  85%|████████▌ | 2400/2809 [00:01<00:00, 1404.04it/s]Parse dataset 'valid':  90%|█████████ | 2542/2809 [00:01<00:00, 1402.60it/s]Parse dataset 'valid':  96%|█████████▌| 2695/2809 [00:01<00:00, 1408.53it/s]Parse dataset 'valid': 100%|██████████| 2809/2809 [00:01<00:00, 1415.14it/s]2020-07-01 12:54:02,903 [MainThread  ] [INFO ]  Relation type count: 1
+2020-07-01 12:54:02,903 [MainThread  ] [INFO ]  Entity type count: 19
+2020-07-01 12:54:02,903 [MainThread  ] [INFO ]  Entities:
+2020-07-01 12:54:02,903 [MainThread  ] [INFO ]  No entity=0
+2020-07-01 12:54:02,903 [MainThread  ] [INFO ]  B-Action=1
+2020-07-01 12:54:02,903 [MainThread  ] [INFO ]  U-Action=2
+2020-07-01 12:54:02,903 [MainThread  ] [INFO ]  I-Action=3
+2020-07-01 12:54:02,903 [MainThread  ] [INFO ]  L-Action=4
+2020-07-01 12:54:02,903 [MainThread  ] [INFO ]  B-Generic-Measure=5
+2020-07-01 12:54:02,903 [MainThread  ] [INFO ]  U-Generic-Measure=6
+2020-07-01 12:54:02,903 [MainThread  ] [INFO ]  I-Generic-Measure=7
+2020-07-01 12:54:02,903 [MainThread  ] [INFO ]  L-Generic-Measure=8
+2020-07-01 12:54:02,903 [MainThread  ] [INFO ]  B-Mention=9
+2020-07-01 12:54:02,903 [MainThread  ] [INFO ]  U-Mention=10
+2020-07-01 12:54:02,903 [MainThread  ] [INFO ]  I-Mention=11
+2020-07-01 12:54:02,903 [MainThread  ] [INFO ]  L-Mention=12
+2020-07-01 12:54:02,903 [MainThread  ] [INFO ]  B-Location=13
+2020-07-01 12:54:02,903 [MainThread  ] [INFO ]  U-Location=14
+2020-07-01 12:54:02,903 [MainThread  ] [INFO ]  I-Location=15
+2020-07-01 12:54:02,903 [MainThread  ] [INFO ]  L-Location=16
+2020-07-01 12:54:02,903 [MainThread  ] [INFO ]  B-Measure-Type=17
+2020-07-01 12:54:02,903 [MainThread  ] [INFO ]  U-Measure-Type=18
+2020-07-01 12:54:02,903 [MainThread  ] [INFO ]  I-Measure-Type=19
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  L-Measure-Type=20
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  B-Speed=21
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  U-Speed=22
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  I-Speed=23
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  L-Speed=24
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  B-Time=25
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  U-Time=26
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  I-Time=27
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  L-Time=28
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  B-Temperature=29
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  U-Temperature=30
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  I-Temperature=31
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  L-Temperature=32
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  B-Size=33
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  U-Size=34
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  I-Size=35
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  L-Size=36
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  B-pH=37
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  U-pH=38
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  I-pH=39
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  L-pH=40
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  B-Concentration=41
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  U-Concentration=42
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  I-Concentration=43
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  L-Concentration=44
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  B-Device=45
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  U-Device=46
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  I-Device=47
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  L-Device=48
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  B-Amount=49
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  U-Amount=50
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  I-Amount=51
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  L-Amount=52
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  B-Modifier=53
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  U-Modifier=54
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  I-Modifier=55
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  L-Modifier=56
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  B-Method=57
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  U-Method=58
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  I-Method=59
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  L-Method=60
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  B-Reagent=61
+2020-07-01 12:54:02,904 [MainThread  ] [INFO ]  U-Reagent=62
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  I-Reagent=63
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  L-Reagent=64
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  B-Seal=65
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  U-Seal=66
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  I-Seal=67
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  L-Seal=68
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  B-Numerical=69
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  U-Numerical=70
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  I-Numerical=71
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  L-Numerical=72
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  Relations:
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  No Relation=0
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  Dataset: train
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  Document count: 8444
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  Relation count: 0
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  Entity count: 47604
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  Token count: 124071
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  Dataset: valid
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  Document count: 2809
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  Relation count: 0
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  Entity count: 16326
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  Token count: 42517
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  Context size: 252
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  Updates per epoch: 263
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  Updates total: 7890
+2020-07-01 12:54:02,905 [MainThread  ] [INFO ]  Updates before relation: 0
+2020-07-01 12:54:03,690 [MainThread  ] [INFO ]  loading configuration file https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-cased-config.json from cache at /home/ma.y/.cache/torch/transformers/b945b69218e98b3e2c95acf911789741307dec43c698d35fad11c1ae28bda352.9da767be51e1327499df13488672789394e2ca38b877837e52618a67d7002391
+2020-07-01 12:54:03,703 [MainThread  ] [INFO ]  Model config {
+  "architectures": [
+    "BertForMaskedLM"
+  ],
+  "attention_probs_dropout_prob": 0.1,
+  "finetuning_task": null,
+  "hidden_act": "gelu",
+  "hidden_dropout_prob": 0.1,
+  "hidden_size": 768,
+  "initializer_range": 0.02,
+  "intermediate_size": 3072,
+  "is_decoder": false,
+  "layer_norm_eps": 1e-12,
+  "max_position_embeddings": 512,
+  "model_type": "bert",
+  "num_attention_heads": 12,
+  "num_hidden_layers": 12,
+  "num_labels": 2,
+  "output_attentions": false,
+  "output_hidden_states": false,
+  "output_past": true,
+  "pad_token_id": 0,
+  "pruned_heads": {},
+  "torchscript": false,
+  "type_vocab_size": 2,
+  "use_bfloat16": false,
+  "vocab_size": 28996
+}
+
+2020-07-01 12:54:04,602 [MainThread  ] [INFO ]  loading weights file https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-cased-pytorch_model.bin from cache at /home/ma.y/.cache/torch/transformers/35d8b9d36faaf46728a0192d82bf7d00137490cd6074e8500778afed552a67e5.3fadbea36527ae472139fe84cddaa65454d7429f12d543d80bfc3ad70de55ac2
+2020-07-01 12:54:17,525 [MainThread  ] [INFO ]  Weights of TableF not initialized from pretrained model: ['entity_label_embedding.weight', 'entity_classifier.weight', 'entity_classifier.bias', 'rel_classifier.w_u', 'rel_classifier.w_q.weight', 'rel_classifier.w_q.bias', 'rel_classifier.w_k.weight', 'rel_classifier.w_k.bias']
+2020-07-01 12:54:17,526 [MainThread  ] [INFO ]  Weights from pretrained model not used in TableF: ['cls.predictions.bias', 'cls.predictions.transform.dense.weight', 'cls.predictions.transform.dense.bias', 'cls.predictions.decoder.weight', 'cls.seq_relationship.weight', 'cls.seq_relationship.bias', 'cls.predictions.transform.LayerNorm.weight', 'cls.predictions.transform.LayerNorm.bias']
+2020-07-01 12:54:17,612 [MainThread  ] [INFO ]  Train epoch: 0
+
+Train epoch 0:   0%|          | 0/263 [00:00<?, ?it/s]
+Process SpawnProcess-1:
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.7/multiprocessing/process.py", line 297, in _bootstrap
+    self.run()
+  File "/opt/anaconda3/lib/python3.7/multiprocessing/process.py", line 99, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/ma.y/Research/table_filling/table_filling.py", line 12, in __train
+    types_path=run_args.types_path, input_reader_cls=input_reader.JsonInputReader)
+  File "/home/ma.y/Research/table_filling/table_filling/tabF_trainer.py", line 157, in train
+    input_reader._start_entity_label, steps_before_rel)
+  File "/home/ma.y/Research/table_filling/table_filling/tabF_trainer.py", line 267, in _train_epoch
+    batch.token_masks, start_labels, entity_labels, batch.entity_masks, allow_rel)
+  File "/home/ma.y/Research/spert/torch/lib/python3.7/site-packages/torch/nn/modules/module.py", line 541, in __call__
+    result = self.forward(*input, **kwargs)
+  File "/home/ma.y/Research/table_filling/table_filling/models.py", line 220, in forward
+    return self._forward_train(*args, **kwargs)
+  File "/home/ma.y/Research/table_filling/table_filling/models.py", line 110, in _forward_train
+    h = self.bert(input_ids=encodings, attention_mask=context_mask)[0] + 1
+  File "/home/ma.y/Research/spert/torch/lib/python3.7/site-packages/torch/nn/modules/module.py", line 541, in __call__
+    result = self.forward(*input, **kwargs)
+  File "/home/ma.y/Research/spert/torch/lib/python3.7/site-packages/transformers/modeling_bert.py", line 719, in forward
+    encoder_attention_mask=encoder_extended_attention_mask)
+  File "/home/ma.y/Research/spert/torch/lib/python3.7/site-packages/torch/nn/modules/module.py", line 541, in __call__
+    result = self.forward(*input, **kwargs)
+  File "/home/ma.y/Research/spert/torch/lib/python3.7/site-packages/transformers/modeling_bert.py", line 376, in forward
+    layer_outputs = layer_module(hidden_states, attention_mask, head_mask[i], encoder_hidden_states, encoder_attention_mask)
+  File "/home/ma.y/Research/spert/torch/lib/python3.7/site-packages/torch/nn/modules/module.py", line 541, in __call__
+    result = self.forward(*input, **kwargs)
+  File "/home/ma.y/Research/spert/torch/lib/python3.7/site-packages/transformers/modeling_bert.py", line 347, in forward
+    self_attention_outputs = self.attention(hidden_states, attention_mask, head_mask)
+  File "/home/ma.y/Research/spert/torch/lib/python3.7/site-packages/torch/nn/modules/module.py", line 541, in __call__
+    result = self.forward(*input, **kwargs)
+  File "/home/ma.y/Research/spert/torch/lib/python3.7/site-packages/transformers/modeling_bert.py", line 301, in forward
+    self_outputs = self.self(hidden_states, attention_mask, head_mask, encoder_hidden_states, encoder_attention_mask)
+  File "/home/ma.y/Research/spert/torch/lib/python3.7/site-packages/torch/nn/modules/module.py", line 541, in __call__
+    result = self.forward(*input, **kwargs)
+  File "/home/ma.y/Research/spert/torch/lib/python3.7/site-packages/transformers/modeling_bert.py", line 229, in forward
+    attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
+RuntimeError: CUDA out of memory. Tried to allocate 94.00 MiB (GPU 0; 10.76 GiB total capacity; 9.74 GiB already allocated; 40.62 MiB free; 127.44 MiB cached)

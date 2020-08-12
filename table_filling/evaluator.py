@@ -52,8 +52,7 @@ class Evaluator:
                     batch_rel_clf: List[torch.tensor],
                    batch: EvalTensorBatch, gold_labels: List[int]):
         
-        batch_size = len(batch_entity_scores)
-
+        batch_size = len(batch_entity_preds)
         for i in range(batch_size):
             # get model predictions for sample
 
@@ -69,13 +68,54 @@ class Evaluator:
                 ##### Relation.
                 rel_scores, rel_preds = rel_clf.squeeze(0).max(dim=0)
 
-                # pred_relations = []
+#                 pred_relations = []
                 pred_relations = self._convert_pred_relations_(rel_preds, rel_scores, 
                                                                 pred_entities, batch.token_masks[i])
 
+                self.update_bio_file(entity_preds)
+                    
             self._pred_entities.append(pred_entities)
             self._pred_relations.append(pred_relations)  
+    
+    
+    def update_bio_file(self, preds: torch.tensor):
+        
+        pred_tags = []
+        
+        for i in range(preds.shape[-1]):
+            tag = self._input_reader._idx2entity_label[preds[i].item()].verbose_name
+            if tag.startswith('U'):
+                tag = 'B' + tag[1:]
+            elif tag.startswith('L'):
+                if pred_tags == [] or pred_tags[-1][1:] != tag[1:]:
+                    tag = 'B' + tag[1:]
+                else:
+                    tag = 'I' + tag[1:]
+            pred_tags.append(tag)
+  
+        self._input_reader._bio_file['preds'].append(pred_tags)
+        return             
 
+    def _write_bio_file(self):
+
+        file_path = self._input_reader._bio_file['path']
+        tokens = self._input_reader._bio_file['tokens']
+        tags = self._input_reader._bio_file['tags']
+        preds = self._input_reader._bio_file['preds']
+        
+        contents = []
+        for t in range(len(tokens)):
+            contents.append([list(i) for i in zip(tokens[t], tags[t], preds[t])])
+
+        with open(file_path, 'w+') as f:
+            for sentence in contents:
+                f.writelines([' '.join(s)+'\n' for s in sentence])
+                f.write('\n')
+
+        return
+    
+    
+    
     def compute_scores(self):
 
         print("Evaluation")
@@ -84,8 +124,9 @@ class Evaluator:
         print("")
         gt, pred = self._convert_by_setting(self._gt_entities, self._pred_entities, include_entity_types=True)
         ner_eval = self._score(gt, pred, print_results=True)
-    
-
+ 
+        if self._epoch + 1 >= self._max_epoch:
+            self._write_bio_file()
 
         print("")
         print("--- Relations ---")

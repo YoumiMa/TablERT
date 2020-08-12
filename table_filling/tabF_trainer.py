@@ -75,7 +75,7 @@ class TableFTrainer(BaseTrainer):
         self._init_eval_logging(valid_label)
 
         # read datasets
-        input_reader = input_reader_cls(types_path, self._tokenizer, self._logger)
+        input_reader = input_reader_cls(types_path, args.bio_path, self._tokenizer, self._logger)
         input_reader.read({train_label: train_path, valid_label: valid_path})
         self._log_datasets(input_reader)
 
@@ -187,7 +187,7 @@ class TableFTrainer(BaseTrainer):
         self._init_eval_logging(dataset_label)
 
         # read datasets
-        input_reader = input_reader_cls(types_path, self._tokenizer, self._logger)
+        input_reader = input_reader_cls(types_path, args.bio_path, self._tokenizer, self._logger)
         input_reader.read({dataset_label: dataset_path})
         self._log_datasets(input_reader)
 
@@ -306,9 +306,9 @@ class TableFTrainer(BaseTrainer):
             
                 if self.args.model_type == 'table_filling':
                     entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.start_token_masks)
-                    entity_logits, entity_scores, entity_preds, rel_clf = model(batch.encodings, batch.ctx_masks, batch.token_masks, evaluate=True) 
+                    entity_logits, entity_scores, entity_preds, rel_clf = model(batch.encodings, batch.ctx_masks, batch.token_masks, entity_labels, evaluate=True) 
                     loss = compute_loss.compute(entity_logits, entity_labels, rel_clf, rel_labels, batch.start_token_masks, is_eval=True)  
-                    evaluator.eval_batch(entity_preds, entity_scores, rel_clf, batch, entity_labels)
+                    evaluator.eval_batch(entity_labels, entity_scores, rel_clf, batch, entity_labels)
 
 
         global_iteration = epoch * updates_epoch + iteration

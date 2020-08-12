@@ -26,11 +26,11 @@ class TableLoss(Loss):
         entity_loss = torch.tensor(0., dtype=torch.float).to(self._device)
         rel_loss = torch.tensor(0., dtype=torch.float).to(self._device)
 
-        for b, batch_logits in enumerate(entity_logits):
-            batch_entities = entity_labels[b]
-            loss = self._entity_criterion(batch_logits.squeeze(0), batch_entities)
+#         for b, batch_logits in enumerate(entity_logits):
+#             batch_entities = entity_labels[b]
+#             loss = self._entity_criterion(batch_logits.squeeze(0), batch_entities)
 
-            entity_loss += loss.sum()
+#             entity_loss += loss.sum()
 
         if rel_logits != [] and rel_labels != []:
             for b, batch_logits in enumerate(rel_logits):

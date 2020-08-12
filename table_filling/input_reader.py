@@ -15,10 +15,14 @@ E_PREFIX = ['B-', 'U-', 'I-', 'L-']
 R_PREFIX = ['R-', 'L-'] # relation Pointing to left/right
 
 class BaseInputReader(ABC):
-    def __init__(self, types_path: str, tokenizer: BertTokenizer, logger: Logger = None):
+    def __init__(self, types_path: str, bio_file_path: str, tokenizer: BertTokenizer, logger: Logger = None):
         # entity + relation types in general, i.e., without prefix
         types = json.load(open(types_path), object_pairs_hook=OrderedDict) 
         
+        self._bio_file = {'path': bio_file_path, 
+                        'tokens': [],
+                        'tags': [],
+                        'preds': []}
         self._entity_labels = OrderedDict()
         self._idx2entity_label = OrderedDict()
         self._relation_labels = OrderedDict()
@@ -35,11 +39,11 @@ class BaseInputReader(ABC):
         self._right_rel_label = []
         # entities
         # add 'None' entity label
-        none_entity_label = EntityLabel('O', 0, 'O', 'No entity')
+        none_entity_label = EntityLabel('O', 0, 'O', 'O')
         self._entity_labels['O'] = none_entity_label
         self._idx2entity_label[0] = none_entity_label
 
-        none_entity_type = EntityType([none_entity_label], 0, 'O', 'No entity')
+        none_entity_type = EntityType([none_entity_label], 0, 'O', 'O')
         self._entity_types['O'] = none_entity_type
         self._idx2entity_type[0] = none_entity_type
 
@@ -192,8 +196,8 @@ class BaseInputReader(ABC):
 
 
 class JsonInputReader(BaseInputReader):
-    def __init__(self, labels_path: str, tokenizer: BertTokenizer, logger: Logger = None):
-        super().__init__(labels_path, tokenizer, logger)
+    def __init__(self, labels_path: str, bio_path: str, tokenizer: BertTokenizer, logger: Logger = None):
+        super().__init__(labels_path, bio_path, tokenizer, logger)
 
     def read(self, dataset_paths):
         for dataset_label, dataset_path in dataset_paths.items():
@@ -212,7 +216,9 @@ class JsonInputReader(BaseInputReader):
         jtokens = doc['tokens']
         jrelations = doc['relations']
         jtags = doc['tags']
-
+        
+        if dataset.label != 'train':
+            self._update_bio_file_info(jtokens, jtags)
 
         # parse tokens
         doc_tokens, doc_encoding = self._parse_tokens(jtokens, dataset)
@@ -321,4 +327,18 @@ class JsonInputReader(BaseInputReader):
 
 
 
+    def _update_bio_file_info(self, tokens, tags):
 
+        bio_tags = []
+        for t in tags:
+            if t.startswith('U'):
+                bio_tags.append('B' + t[1:])
+            elif t.startswith('L'):
+                bio_tags.append('I' + t[1:])
+            else:
+                bio_tags.append(t)
+        
+        self._bio_file['tokens'].append(tokens)
+        self._bio_file['tags'].append(bio_tags)
+
+        return
