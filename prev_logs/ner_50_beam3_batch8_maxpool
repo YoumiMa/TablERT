@@ -1,87 +1,0 @@
---------------------------------------------------
-Config:
-{'label': 'conll04_tf_ner_50_beam3_batch8_maxpool', 'model_type': 'table_filling', 'model_path': 'bert-base-cased', 'tokenizer_path': 'bert-base-cased', 'train_path': 'data/datasets/conll04_bioul/conll04_train_dev.json', 'valid_path': 'data/datasets/conll04_bioul/conll04_test.json', 'types_path': 'data/datasets/conll04_bioul/conll04_types.json', 'train_batch_size': '8', 'eval_batch_size': '1', 'beam_size': '3', 'epochs': '50', 'lr': '5e-5', 'lr_warmup': '0.1', 'weight_decay': '0.01', 'max_grad_norm': '1.0', 'iter_before_rel': '100000', 'entity_label_embedding': '50', 'prop_drop': '0.1', 'store_examples': 'false', 'sampling_processes': '1', 'sampling_limit': '100', 'max_pairs': '1000', 'final_eval': 'false', 'log_path': 'data/log/', 'save_path': 'data/save/', 'seed': '1'}
-Repeat 1 times
---------------------------------------------------
-Iteration 0
---------------------------------------------------
-2020-01-20 21:48:55,595 [MainThread  ] [INFO ]  loading file https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-cased-vocab.txt from cache at /home/ma.y/.cache/torch/transformers/5e8a2b4893d13790ed4150ca1906be5f7a03d6c4ddf62296c383f6db42814db2.e13dbb970cb325137104fb2e5f36fe865f27746c6b526f6352861b1980eb80b1
-2020-01-20 21:48:58,158 [MainThread  ] [INFO ]  Datasets: data/datasets/conll04_bioul/conll04_train_dev.json, data/datasets/conll04_bioul/conll04_test.json
-2020-01-20 21:48:58,158 [MainThread  ] [INFO ]  Model type: table_filling
-Parse dataset 'train':   0%|          | 0/1153 [00:00<?, ?it/s]Parse dataset 'train':   4%|▍         | 50/1153 [00:00<00:02, 494.17it/s]Parse dataset 'train':   8%|▊         | 94/1153 [00:00<00:02, 474.64it/s]Parse dataset 'train':  12%|█▏        | 141/1153 [00:00<00:02, 470.17it/s]Parse dataset 'train':  17%|█▋        | 194/1153 [00:00<00:01, 486.56it/s]Parse dataset 'train':  20%|██        | 236/1153 [00:00<00:02, 390.43it/s]Parse dataset 'train':  24%|██▍       | 279/1153 [00:00<00:02, 399.02it/s]Parse dataset 'train':  27%|██▋       | 317/1153 [00:00<00:02, 393.10it/s]Parse dataset 'train':  32%|███▏      | 371/1153 [00:00<00:01, 427.70it/s]Parse dataset 'train':  36%|███▌      | 413/1153 [00:00<00:01, 420.09it/s]Parse dataset 'train':  40%|███▉      | 459/1153 [00:01<00:01, 430.29it/s]Parse dataset 'train':  44%|████▎     | 502/1153 [00:01<00:01, 429.30it/s]Parse dataset 'train':  47%|████▋     | 545/1153 [00:01<00:01, 360.74it/s]Parse dataset 'train':  52%|█████▏    | 600/1153 [00:01<00:01, 400.93it/s]Parse dataset 'train':  57%|█████▋    | 656/1153 [00:01<00:01, 435.73it/s]Parse dataset 'train':  61%|██████    | 706/1153 [00:01<00:00, 452.88it/s]Parse dataset 'train':  65%|██████▌   | 754/1153 [00:01<00:00, 447.90it/s]Parse dataset 'train':  70%|██████▉   | 807/1153 [00:01<00:00, 468.30it/s]Parse dataset 'train':  74%|███████▍  | 856/1153 [00:01<00:00, 458.03it/s]Parse dataset 'train':  79%|███████▉  | 915/1153 [00:02<00:00, 489.95it/s]Parse dataset 'train':  84%|████████▍ | 966/1153 [00:02<00:00, 489.04it/s]Parse dataset 'train':  88%|████████▊ | 1016/1153 [00:02<00:00, 489.66it/s]Parse dataset 'train':  94%|█████████▎| 1079/1153 [00:02<00:00, 523.61it/s]Parse dataset 'train':  98%|█████████▊| 1134/1153 [00:02<00:00, 530.37it/s]Parse dataset 'train': 100%|██████████| 1153/1153 [00:02<00:00, 456.53it/s]
-Parse dataset 'valid':   0%|          | 0/288 [00:00<?, ?it/s]Parse dataset 'valid':  15%|█▌        | 44/288 [00:00<00:00, 438.55it/s]Parse dataset 'valid':  31%|███       | 89/288 [00:00<00:00, 441.42it/s]Parse dataset 'valid':  51%|█████     | 146/288 [00:00<00:00, 473.18it/s]Parse dataset 'valid':  62%|██████▏   | 179/288 [00:00<00:00, 389.94it/s]Parse dataset 'valid':  82%|████████▏ | 237/288 [00:00<00:00, 432.39it/s]Parse dataset 'valid': 100%|██████████| 288/288 [00:00<00:00, 468.31it/s]2020-01-20 21:49:01,330 [MainThread  ] [INFO ]  Relation type count: 6
-2020-01-20 21:49:01,330 [MainThread  ] [INFO ]  Entity type count: 5
-2020-01-20 21:49:01,330 [MainThread  ] [INFO ]  Entities:
-2020-01-20 21:49:01,330 [MainThread  ] [INFO ]  No Entity=0
-2020-01-20 21:49:01,330 [MainThread  ] [INFO ]  B-Location=1
-2020-01-20 21:49:01,330 [MainThread  ] [INFO ]  I-Location=2
-2020-01-20 21:49:01,330 [MainThread  ] [INFO ]  L-Location=3
-2020-01-20 21:49:01,330 [MainThread  ] [INFO ]  U-Location=4
-2020-01-20 21:49:01,330 [MainThread  ] [INFO ]  B-Organization=5
-2020-01-20 21:49:01,330 [MainThread  ] [INFO ]  I-Organization=6
-2020-01-20 21:49:01,330 [MainThread  ] [INFO ]  L-Organization=7
-2020-01-20 21:49:01,330 [MainThread  ] [INFO ]  U-Organization=8
-2020-01-20 21:49:01,330 [MainThread  ] [INFO ]  B-People=9
-2020-01-20 21:49:01,330 [MainThread  ] [INFO ]  I-People=10
-2020-01-20 21:49:01,330 [MainThread  ] [INFO ]  L-People=11
-2020-01-20 21:49:01,330 [MainThread  ] [INFO ]  U-People=12
-2020-01-20 21:49:01,330 [MainThread  ] [INFO ]  B-Other=13
-2020-01-20 21:49:01,330 [MainThread  ] [INFO ]  I-Other=14
-2020-01-20 21:49:01,330 [MainThread  ] [INFO ]  L-Other=15
-2020-01-20 21:49:01,330 [MainThread  ] [INFO ]  U-Other=16
-2020-01-20 21:49:01,331 [MainThread  ] [INFO ]  Relations:
-2020-01-20 21:49:01,331 [MainThread  ] [INFO ]  No Relation=0
-2020-01-20 21:49:01,331 [MainThread  ] [INFO ]  L-Work for=1
-2020-01-20 21:49:01,331 [MainThread  ] [INFO ]  R-Work for=2
-2020-01-20 21:49:01,331 [MainThread  ] [INFO ]  L-Kill=3
-2020-01-20 21:49:01,331 [MainThread  ] [INFO ]  R-Kill=4
-2020-01-20 21:49:01,331 [MainThread  ] [INFO ]  L-Organization based in=5
-2020-01-20 21:49:01,331 [MainThread  ] [INFO ]  R-Organization based in=6
-2020-01-20 21:49:01,331 [MainThread  ] [INFO ]  L-Live in=7
-2020-01-20 21:49:01,331 [MainThread  ] [INFO ]  R-Live in=8
-2020-01-20 21:49:01,331 [MainThread  ] [INFO ]  L-Located in=9
-2020-01-20 21:49:01,331 [MainThread  ] [INFO ]  R-Located in=10
-2020-01-20 21:49:01,331 [MainThread  ] [INFO ]  Dataset: train
-2020-01-20 21:49:01,331 [MainThread  ] [INFO ]  Document count: 1153
-2020-01-20 21:49:01,331 [MainThread  ] [INFO ]  Relation count: 1626
-2020-01-20 21:49:01,331 [MainThread  ] [INFO ]  Entity count: 4267
-2020-01-20 21:49:01,331 [MainThread  ] [INFO ]  Dataset: valid
-2020-01-20 21:49:01,331 [MainThread  ] [INFO ]  Document count: 288
-2020-01-20 21:49:01,331 [MainThread  ] [INFO ]  Relation count: 422
-2020-01-20 21:49:01,331 [MainThread  ] [INFO ]  Entity count: 1079
-2020-01-20 21:49:01,331 [MainThread  ] [INFO ]  Context size: 157
-2020-01-20 21:49:01,331 [MainThread  ] [INFO ]  Updates per epoch: 144
-2020-01-20 21:49:01,331 [MainThread  ] [INFO ]  Updates total: 7200
-2020-01-20 21:49:02,159 [MainThread  ] [INFO ]  loading configuration file https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-cased-config.json from cache at /home/ma.y/.cache/torch/transformers/b945b69218e98b3e2c95acf911789741307dec43c698d35fad11c1ae28bda352.d7a3af18ce3a2ab7c0f48f04dc8daff45ed9a3ed333b9e9a79d012a0dedf87a6
-2020-01-20 21:49:02,160 [MainThread  ] [INFO ]  Model config {
-  "attention_probs_dropout_prob": 0.1,
-  "finetuning_task": null,
-  "hidden_act": "gelu",
-  "hidden_dropout_prob": 0.1,
-  "hidden_size": 768,
-  "initializer_range": 0.02,
-  "intermediate_size": 3072,
-  "is_decoder": false,
-  "layer_norm_eps": 1e-12,
-  "max_position_embeddings": 512,
-  "num_attention_heads": 12,
-  "num_hidden_layers": 12,
-  "num_labels": 2,
-  "output_attentions": false,
-  "output_hidden_states": false,
-  "output_past": true,
-  "pruned_heads": {},
-  "torchscript": false,
-  "type_vocab_size": 2,
-  "use_bfloat16": false,
-  "vocab_size": 28996
-}
-
-2020-01-20 21:49:02,935 [MainThread  ] [INFO ]  loading weights file https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-cased-pytorch_model.bin from cache at /home/ma.y/.cache/torch/transformers/35d8b9d36faaf46728a0192d82bf7d00137490cd6074e8500778afed552a67e5.3fadbea36527ae472139fe84cddaa65454d7429f12d543d80bfc3ad70de55ac2
-2020-01-20 21:49:05,396 [MainThread  ] [INFO ]  Weights of TableF not initialized from pretrained model: ['entity_label_embedding.weight', 'rel_classifier.weight', 'rel_classifier.bias', 'entity_classifier.weight', 'entity_classifier.bias']
-2020-01-20 21:49:05,396 [MainThread  ] [INFO ]  Weights from pretrained model not used in TableF: ['cls.predictions.bias', 'cls.predictions.transform.dense.weight', 'cls.predictions.transform.dense.bias', 'cls.predictions.decoder.weight', 'cls.seq_relationship.weight', 'cls.seq_relationship.bias', 'cls.predictions.transform.LayerNorm.weight', 'cls.predictions.transform.LayerNorm.bias']
-2020-01-20 21:49:08,964 [MainThread  ] [INFO ]  Train epoch: 0
-
-Train epoch 0:   0%|          | 0/144 [00:00<?, ?it/s]/home/ma.y/Research/table_filling/spert/models.py:263: UserWarning: To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach() or sourceTensor.clone().detach().requires_grad_(True), rather than torch.tensor(sourceTensor).
-  prev_embedding = self.entity_label_embedding(torch.tensor(prev_label).cuda())
-Train epoch 0:   1%|          | 1/144 [00:02<06:35,  2.77s/it]Train epoch 0:   1%|▏         | 2/144 [00:03<05:14,  2.21s/it]Train epoch 0:   2%|▏         | 3/144 [00:04<04:07,  1.75s/it]Train epoch 0:   3%|▎         | 4/144 [00:04<03:04,  1.32s/it]Train epoch 0:   3%|▎         | 5/144 [00:05<02:22,  1.03s/it]Train epoch 0:   4%|▍         | 6/144 [00:05<02:05,  1.10it/s]Train epoch 0:   5%|▍         | 7/144 [00:06<01:53,  1.21it/s]Train epoch 0:   6%|▌         | 8/144 [00:06<01:44,  1.31it/s]Train epoch 0:   6%|▋         | 9/144 [00:07<01:43,  1.31it/s]Train epoch 0:   7%|▋         | 10/144 [00:08<01:40,  1.34it/s]Train epoch 0:   8%|▊         | 11/144 [00:09<01:36,  1.38it/s]Train epoch 0:   8%|▊         | 12/144 [00:09<01:33,  1.42it/s]Train epoch 0:   9%|▉         | 13/144 [00:10<01:30,  1.44it/s]Train epoch 0:  10%|▉         | 14/144 [00:11<01:32,  1.41it/s]Train epoch 0:  10%|█         | 15/144 [00:11<01:23,  1.54it/s]Train epoch 0:  11%|█         | 16/144 [00:12<01:18,  1.62it/s]Train epoch 0:  12%|█▏        | 17/144 [00:12<01:19,  1.60it/s]Train epoch 0:  12%|█▎        | 18/144 [00:13<01:17,  1.64it/s]Train epoch 0:  13%|█▎        | 19/144 [00:13<01:11,  1.75it/s]Train epoch 0:  14%|█▍        | 20/144 [00:14<01:12,  1.71it/s]Train epoch 0:  15%|█▍        | 21/144 [00:15<01:16,  1.61it/s]Train epoch 0:  15%|█▌        | 22/144 [00:15<01:13,  1.65it/s]Train epoch 0:  16%|█▌        | 23/144 [00:16<01:13,  1.65it/s]Train epoch 0:  17%|█▋        | 24/144 [00:16<01:10,  1.69it/s]Train epoch 0:  17%|█▋        | 25/144 [00:17<01:10,  1.69it/s]Train epoch 0:  18%|█▊        | 26/144 [00:18<01:11,  1.65it/s]Train epoch 0:  19%|█▉        | 27/144 [00:18<01:08,  1.71it/s]Train epoch 0:  19%|█▉        | 28/144 [00:19<01:08,  1.69it/s]Train epoch 0:  20%|██        | 29/144 [00:19<01:08,  1.68it/s]Train epoch 0:  21%|██        | 30/144 [00:20<01:04,  1.77it/s]

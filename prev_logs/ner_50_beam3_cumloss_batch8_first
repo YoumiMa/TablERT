@@ -1,103 +1,0 @@
---------------------------------------------------
-Config:
-{'label': 'conll04_tf_ner_50_beam_batch8_pool', 'model_type': 'table_filling', 'model_path': 'bert-base-cased', 'tokenizer_path': 'bert-base-cased', 'train_path': 'data/datasets/conll04_bioul/conll04_train_dev.json', 'valid_path': 'data/datasets/conll04_bioul/conll04_test.json', 'types_path': 'data/datasets/conll04_bioul/conll04_types.json', 'train_batch_size': '8', 'eval_batch_size': '1', 'beam_size': '3', 'epochs': '50', 'lr': '5e-5', 'lr_warmup': '0.1', 'weight_decay': '0.01', 'max_grad_norm': '1.0', 'iter_before_rel': '100000', 'entity_label_embedding': '50', 'prop_drop': '0.1', 'store_examples': 'false', 'sampling_processes': '1', 'sampling_limit': '100', 'max_pairs': '1000', 'final_eval': 'false', 'log_path': 'data/log/', 'save_path': 'data/save/', 'seed': '1'}
-Repeat 1 times
---------------------------------------------------
-Iteration 0
---------------------------------------------------
-2020-01-20 13:15:49,047 [MainThread  ] [INFO ]  loading file https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-cased-vocab.txt from cache at /home/ma.y/.cache/torch/transformers/5e8a2b4893d13790ed4150ca1906be5f7a03d6c4ddf62296c383f6db42814db2.e13dbb970cb325137104fb2e5f36fe865f27746c6b526f6352861b1980eb80b1
-2020-01-20 13:15:51,520 [MainThread  ] [INFO ]  Datasets: data/datasets/conll04_bioul/conll04_train_dev.json, data/datasets/conll04_bioul/conll04_test.json
-2020-01-20 13:15:51,520 [MainThread  ] [INFO ]  Model type: table_filling
-Parse dataset 'train':   0%|          | 0/1153 [00:00<?, ?it/s]Parse dataset 'train':   4%|▍         | 49/1153 [00:00<00:02, 489.50it/s]Parse dataset 'train':   8%|▊         | 91/1153 [00:00<00:02, 466.14it/s]Parse dataset 'train':  11%|█▏        | 130/1153 [00:00<00:02, 439.46it/s]Parse dataset 'train':  15%|█▌        | 174/1153 [00:00<00:02, 438.31it/s]Parse dataset 'train':  18%|█▊        | 209/1153 [00:00<00:02, 406.63it/s]Parse dataset 'train':  21%|██        | 243/1153 [00:00<00:03, 295.32it/s]Parse dataset 'train':  26%|██▌       | 295/1153 [00:00<00:02, 338.57it/s]Parse dataset 'train':  31%|███       | 357/1153 [00:00<00:02, 391.21it/s]Parse dataset 'train':  35%|███▌      | 406/1153 [00:00<00:01, 412.31it/s]Parse dataset 'train':  41%|████      | 467/1153 [00:01<00:01, 456.47it/s]Parse dataset 'train':  45%|████▍     | 517/1153 [00:01<00:01, 425.66it/s]Parse dataset 'train':  49%|████▉     | 563/1153 [00:01<00:01, 381.01it/s]Parse dataset 'train':  52%|█████▏    | 605/1153 [00:01<00:01, 385.15it/s]Parse dataset 'train':  56%|█████▌    | 647/1153 [00:01<00:01, 391.55it/s]Parse dataset 'train':  61%|██████▏   | 707/1153 [00:01<00:01, 434.86it/s]Parse dataset 'train':  65%|██████▌   | 755/1153 [00:01<00:00, 447.35it/s]Parse dataset 'train':  70%|██████▉   | 806/1153 [00:01<00:00, 463.58it/s]Parse dataset 'train':  74%|███████▍  | 854/1153 [00:02<00:00, 445.61it/s]Parse dataset 'train':  78%|███████▊  | 900/1153 [00:02<00:00, 433.68it/s]Parse dataset 'train':  82%|████████▏ | 945/1153 [00:02<00:00, 436.83it/s]Parse dataset 'train':  86%|████████▌ | 991/1153 [00:02<00:00, 442.40it/s]Parse dataset 'train':  91%|█████████ | 1047/1153 [00:02<00:00, 469.74it/s]Parse dataset 'train':  97%|█████████▋| 1119/1153 [00:02<00:00, 523.17it/s]Parse dataset 'train': 100%|██████████| 1153/1153 [00:02<00:00, 437.49it/s]
-Parse dataset 'valid':   0%|          | 0/288 [00:00<?, ?it/s]Parse dataset 'valid':  15%|█▌        | 44/288 [00:00<00:00, 439.17it/s]Parse dataset 'valid':  28%|██▊       | 81/288 [00:00<00:00, 414.30it/s]Parse dataset 'valid':  45%|████▌     | 131/288 [00:00<00:00, 434.62it/s]Parse dataset 'valid':  60%|██████    | 173/288 [00:00<00:00, 378.88it/s]Parse dataset 'valid':  75%|███████▌  | 216/288 [00:00<00:00, 390.26it/s]Parse dataset 'valid':  91%|█████████▏| 263/288 [00:00<00:00, 410.56it/s]Parse dataset 'valid': 100%|██████████| 288/288 [00:00<00:00, 417.34it/s]2020-01-20 13:15:54,870 [MainThread  ] [INFO ]  Relation type count: 6
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  Entity type count: 5
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  Entities:
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  No Entity=0
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  U-Location=1
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  L-Location=2
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  I-Location=3
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  B-Location=4
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  U-Organization=5
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  L-Organization=6
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  I-Organization=7
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  B-Organization=8
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  U-People=9
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  L-People=10
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  I-People=11
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  B-People=12
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  U-Other=13
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  L-Other=14
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  I-Other=15
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  B-Other=16
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  Relations:
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  No Relation=0
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  L-Work for=1
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  R-Work for=2
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  L-Kill=3
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  R-Kill=4
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  L-Organization based in=5
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  R-Organization based in=6
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  L-Live in=7
-2020-01-20 13:15:54,871 [MainThread  ] [INFO ]  R-Live in=8
-2020-01-20 13:15:54,872 [MainThread  ] [INFO ]  L-Located in=9
-2020-01-20 13:15:54,872 [MainThread  ] [INFO ]  R-Located in=10
-2020-01-20 13:15:54,872 [MainThread  ] [INFO ]  Dataset: train
-2020-01-20 13:15:54,872 [MainThread  ] [INFO ]  Document count: 1153
-2020-01-20 13:15:54,872 [MainThread  ] [INFO ]  Relation count: 1626
-2020-01-20 13:15:54,872 [MainThread  ] [INFO ]  Entity count: 4267
-2020-01-20 13:15:54,872 [MainThread  ] [INFO ]  Dataset: valid
-2020-01-20 13:15:54,872 [MainThread  ] [INFO ]  Document count: 288
-2020-01-20 13:15:54,872 [MainThread  ] [INFO ]  Relation count: 422
-2020-01-20 13:15:54,872 [MainThread  ] [INFO ]  Entity count: 1079
-2020-01-20 13:15:54,872 [MainThread  ] [INFO ]  Context size: 157
-2020-01-20 13:15:54,872 [MainThread  ] [INFO ]  Updates per epoch: 144
-2020-01-20 13:15:54,872 [MainThread  ] [INFO ]  Updates total: 7200
-2020-01-20 13:15:55,795 [MainThread  ] [INFO ]  loading configuration file https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-cased-config.json from cache at /home/ma.y/.cache/torch/transformers/b945b69218e98b3e2c95acf911789741307dec43c698d35fad11c1ae28bda352.d7a3af18ce3a2ab7c0f48f04dc8daff45ed9a3ed333b9e9a79d012a0dedf87a6
-2020-01-20 13:15:55,796 [MainThread  ] [INFO ]  Model config {
-  "attention_probs_dropout_prob": 0.1,
-  "finetuning_task": null,
-  "hidden_act": "gelu",
-  "hidden_dropout_prob": 0.1,
-  "hidden_size": 768,
-  "initializer_range": 0.02,
-  "intermediate_size": 3072,
-  "is_decoder": false,
-  "layer_norm_eps": 1e-12,
-  "max_position_embeddings": 512,
-  "num_attention_heads": 12,
-  "num_hidden_layers": 12,
-  "num_labels": 2,
-  "output_attentions": false,
-  "output_hidden_states": false,
-  "output_past": true,
-  "pruned_heads": {},
-  "torchscript": false,
-  "type_vocab_size": 2,
-  "use_bfloat16": false,
-  "vocab_size": 28996
-}
-
-2020-01-20 13:15:56,554 [MainThread  ] [INFO ]  loading weights file https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-cased-pytorch_model.bin from cache at /home/ma.y/.cache/torch/transformers/35d8b9d36faaf46728a0192d82bf7d00137490cd6074e8500778afed552a67e5.3fadbea36527ae472139fe84cddaa65454d7429f12d543d80bfc3ad70de55ac2
-2020-01-20 13:15:58,919 [MainThread  ] [INFO ]  Weights of TableF not initialized from pretrained model: ['entity_label_embedding.weight', 'rel_classifier.weight', 'rel_classifier.bias', 'entity_classifier.weight', 'entity_classifier.bias']
-2020-01-20 13:15:58,920 [MainThread  ] [INFO ]  Weights from pretrained model not used in TableF: ['cls.predictions.bias', 'cls.predictions.transform.dense.weight', 'cls.predictions.transform.dense.bias', 'cls.predictions.decoder.weight', 'cls.seq_relationship.weight', 'cls.seq_relationship.bias', 'cls.predictions.transform.LayerNorm.weight', 'cls.predictions.transform.LayerNorm.bias']
-2020-01-20 13:16:02,421 [MainThread  ] [INFO ]  Train epoch: 0
-
-Train epoch 0:   0%|          | 0/144 [00:00<?, ?it/s]/home/ma.y/Research/table_filling/spert/models.py:262: UserWarning: To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach() or sourceTensor.clone().detach().requires_grad_(True), rather than torch.tensor(sourceTensor).
-  prev_embedding = self.entity_label_embedding(torch.tensor(prev_label).cuda())
-Train epoch 0:   0%|          | 0/144 [00:00<?, ?it/s]torch.Size([8, 157]) torch.Size([8, 59, 157])
-
-Process SpawnProcess-1:
-Traceback (most recent call last):
-  File "/home/ma.y/.conda/envs/torch/lib/python3.6/multiprocessing/process.py", line 258, in _bootstrap
-    self.run()
-  File "/home/ma.y/.conda/envs/torch/lib/python3.6/multiprocessing/process.py", line 93, in run
-    self._target(*self._args, **self._kwargs)
-  File "/home/ma.y/Research/table_filling/spert.py", line 12, in __train
-    types_path=run_args.types_path, input_reader_cls=input_reader.JsonInputReader)
-  File "/home/ma.y/Research/table_filling/spert/spert_trainer.py", line 136, in train
-    input_reader._start_entity_label)
-  File "/home/ma.y/Research/table_filling/spert/spert_trainer.py", line 233, in _train_epoch
-    gold_labels = align_label(batch.entity_labels, batch.token_masks)
-  File "/home/ma.y/Research/table_filling/spert/spert_trainer.py", line 41, in align_label
-    if torch.any(token_mask[b, i]):
-IndexError: index 59 is out of bounds for dimension 1 with size 59

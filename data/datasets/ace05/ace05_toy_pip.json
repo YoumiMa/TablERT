@@ -1,0 +1,1 @@
+[{"tokens": ["first", "sentence"], "tags": ["O", "O"], "relations": [], "orig_id": 0, "preds": ["O", "O"]}, {"tokens": ["second", "sentence"], "tags": ["O", "O"], "relations": [], "orig_id": 0, "preds": ["O", "O"]}, {"tokens": ["third", "sentence"], "tags": ["U-ORG", "O"], "relations": [], "orig_id": 0, "preds": ["U-ORG", "O"]}]
