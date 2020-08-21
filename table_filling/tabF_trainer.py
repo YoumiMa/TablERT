@@ -262,12 +262,10 @@ class TableFTrainer(BaseTrainer):
 
 
             if self.args.model_type == 'table_filling':
-#                 print("before alignment:", batch.entity_labels, batch.rel_labels)
-#                 entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.start_token_masks)
-#                 print("after alignment:", entity_labels, rel_labels)
+                entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.start_token_masks)
                 entity_logits, rel_logits = model(batch.encodings, batch.ctx_masks, 
-                    batch.token_masks, batch.entity_masks, batch.entity_labels, allow_rel)
-                loss = compute_loss.compute(entity_logits, batch.entity_labels, rel_logits, batch.rel_labels, batch.start_token_masks) 
+                    batch.token_masks, start_labels, entity_labels, batch.entity_masks, allow_rel)
+                loss = compute_loss.compute(entity_logits, entity_labels, rel_logits, rel_labels, batch.start_token_masks) 
                            
             # logging
             iteration += 1

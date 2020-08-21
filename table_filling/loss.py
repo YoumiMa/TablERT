@@ -26,25 +26,25 @@ class TableLoss(Loss):
         entity_loss = torch.tensor(0., dtype=torch.float).to(self._device)
         rel_loss = torch.tensor(0., dtype=torch.float).to(self._device)
 
-        loss = self._entity_criterion(entity_logits.transpose(1, 2), entity_labels)
-        loss = loss * token_masks.sum(dim=1)
-#         print(entity_labels)
-#         print(entity_logits.argmax(dim=2))
-        entity_loss += loss.sum()
+        for b, batch_logits in enumerate(entity_logits):
+            batch_entities = entity_labels[b]
+            loss = self._entity_criterion(batch_logits.squeeze(0), batch_entities)
 
-#         if rel_logits != [] and rel_labels != []:
-#             for b, batch_logits in enumerate(rel_logits):
-#                 batch_labels = rel_labels[b]
-#                 if batch_labels.nelement() == 0:
-#                     continue
-#                 batch_loss = self._rel_criterion(batch_logits, batch_labels.unsqueeze(0))
+            entity_loss += loss.sum()
 
-#                 batch_loss_masked = torch.triu(batch_loss, diagonal=1)
+        if rel_logits != [] and rel_labels != []:
+            for b, batch_logits in enumerate(rel_logits):
+                batch_labels = rel_labels[b]
+                if batch_labels.nelement() == 0:
+                    continue
+                batch_loss = self._rel_criterion(batch_logits, batch_labels.unsqueeze(0))
 
-#                 rel_loss += batch_loss_masked.sum() 
+                batch_loss_masked = torch.triu(batch_loss, diagonal=1)
+
+                rel_loss += batch_loss_masked.sum() 
 
  
-        train_loss =  entity_loss
+        train_loss =  entity_loss + rel_loss
         
         if not is_eval:
             train_loss.backward()
@@ -53,5 +53,3 @@ class TableLoss(Loss):
             self._scheduler.step()
             self._model.zero_grad()
         return torch.tensor([train_loss.item(), entity_loss.item(), rel_loss.item()])
-
-
