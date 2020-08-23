@@ -306,7 +306,7 @@ class TableFTrainer(BaseTrainer):
             
                 if self.args.model_type == 'table_filling':
                     entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.start_token_masks)
-                    entity_logits, entity_scores, entity_preds, rel_clf = model(batch.encodings, batch.ctx_masks, batch.token_masks, entity_labels, evaluate=True) 
+                    entity_logits, entity_scores, entity_preds, rel_clf = model(batch.encodings, batch.ctx_masks, batch.token_masks, entity_labels,batch.entity_masks, evaluate=True) 
                     loss = compute_loss.compute(entity_logits, entity_labels, rel_clf, rel_labels, batch.start_token_masks, is_eval=True)  
                     evaluator.eval_batch(entity_labels, entity_scores, rel_clf, batch, entity_labels)
 
