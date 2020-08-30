@@ -135,8 +135,8 @@ class TableF(BertPreTrainedModel):
             # curr word repr.
             curr_word_repr = word_h_pooled[1:-1].contiguous()
 
-#             curr_rel_logits = self._forward_relation(curr_word_repr, entity_preds.squeeze(0) , diag_entity_mask)
-            curr_rel_logits = self._forward_relation(curr_word_repr, gold_entity[batch] , entity_masks[batch])
+            curr_rel_logits = self._forward_relation(curr_word_repr, entity_preds.squeeze(0) , diag_entity_mask)
+#             curr_rel_logits = self._forward_relation(curr_word_repr, gold_entity[batch] , entity_masks[batch])
             all_rel_logits.append(curr_rel_logits)
 
         if allow_rel:
@@ -213,8 +213,8 @@ class TableF(BertPreTrainedModel):
 #             print(gold_entity[batch])
 #             exit(0)
             # Relation classification.
-#             curr_rel_logits = self._forward_relation(curr_word_reprs, entity_preds[1:].squeeze(-1), entity_masks, True)
-            curr_rel_logits = self._forward_relation(curr_word_reprs, gold_entity[batch], gold_entity_mask[batch], True)
+            curr_rel_logits = self._forward_relation(curr_word_reprs, entity_preds[1:].squeeze(-1), entity_masks, True)
+#             curr_rel_logits = self._forward_relation(curr_word_reprs, gold_entity[batch], gold_entity_mask[batch], True)
             all_rel_logits.append(curr_rel_logits)
 
 

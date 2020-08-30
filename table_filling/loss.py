@@ -43,9 +43,9 @@ class TableLoss(Loss):
 
                 rel_loss += batch_loss_masked.sum() 
 
- 
-        train_loss = rel_loss
-#         train_loss =  entity_loss + rel_loss
+        train_loss =  entity_loss + rel_loss 
+#         train_loss = rel_loss
+
         
         if not is_eval:
             train_loss.backward()
