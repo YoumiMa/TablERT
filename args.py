@@ -11,10 +11,6 @@ def _add_common_args(arg_parser):
     arg_parser.add_argument('--tokenizer_path', type=str, help="Path to tokenizer")
     arg_parser.add_argument('--lowercase', action='store_true', default=False,
                             help="If true, input is lowercased during preprocessing")
-    arg_parser.add_argument('--sampling_processes', type=int, default=4,
-                            help="Number of sampling processes. 0 = no multiprocessing for sampling")
-    arg_parser.add_argument('--sampling_limit', type=int, default=100, help="Maximum number of sample batches in queue")
-
     # Logging
     arg_parser.add_argument('--label', type=str, help="Label of run. Used as the directory name of logs/models")
     arg_parser.add_argument('--log_path', type=str, help="Path do directory where training/evaluation logs are stored")

@@ -102,9 +102,8 @@ class TableF(BertPreTrainedModel):
         return rel_logits
 
     def _forward_train(self, encodings: torch.tensor, context_mask: torch.tensor, 
-                        token_mask: torch.tensor, start_labels: List[int], 
-                        gold_entity: torch.tensor, entity_masks: List[torch.tensor],
-                        allow_rel: bool):  
+                        token_mask: torch.tensor, gold_entity: torch.tensor, entity_masks: List[torch.tensor],
+                      allow_rel: bool):  
         # get contextualized token embeddings from last transformer layer
         context_mask = context_mask.float()
         h = self.bert(input_ids=encodings, attention_mask=context_mask)[0] + 1

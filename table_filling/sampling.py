@@ -14,11 +14,12 @@ from table_filling.entities import Dataset, Token
 multiprocessing.set_sharing_strategy('file_system')
 
 
-class TrainTensorBatch:
+class TensorBatch:
     def __init__(self, encodings: torch.tensor, ctx_masks: torch.tensor, 
                  entity_masks: List[torch.tensor],
                  entity_labels: torch.tensor, rel_labels:torch.tensor, 
                  token_masks: torch.tensor, start_token_masks: torch.tensor):
+        
         self.encodings = encodings
         self.ctx_masks = ctx_masks
 
@@ -29,7 +30,7 @@ class TrainTensorBatch:
 
         self.token_masks = token_masks
         self.start_token_masks = start_token_masks
-
+        
     def to(self, device):
         encodings = self.encodings.to(device)
         ctx_masks = self.ctx_masks.to(device)
@@ -42,42 +43,34 @@ class TrainTensorBatch:
         token_masks = self.token_masks.to(device)
         start_token_masks = self.start_token_masks.to(device)
 
-        return TrainTensorBatch(encodings, ctx_masks, entity_masks, entity_labels, rel_labels, token_masks, start_token_masks)
+        return TensorBatch(encodings, ctx_masks, entity_masks, entity_labels, rel_labels, token_masks, start_token_masks)
+    
+    
+
+class TrainTensorBatch(TensorBatch):
+    def __init__(self, encodings: torch.tensor, ctx_masks: torch.tensor, 
+                 entity_masks: List[torch.tensor],
+                 entity_labels: torch.tensor, rel_labels:torch.tensor, 
+                 token_masks: torch.tensor, start_token_masks: torch.tensor):
+        
+        super().__init__(encodings, ctx_masks, entity_masks, 
+                         entity_labels, rel_labels, 
+                         token_masks, start_token_masks)
 
 
-class EvalTensorBatch:
+        
+class EvalTensorBatch(TensorBatch):
     def __init__(self, encodings: torch.tensor, ctx_masks: torch.tensor,
                  entity_masks: List[torch.tensor],
                  entity_labels: torch.tensor, rel_labels:torch.tensor, 
                  token_masks: torch.tensor, start_token_masks: torch.tensor):
         
-        self.encodings = encodings
-        self.ctx_masks = ctx_masks
-
-        self.entity_masks = entity_masks
-        self.entity_labels = entity_labels
-
-        self.rel_labels = rel_labels
-
-        self.token_masks = token_masks
-        self.start_token_masks = start_token_masks
-
-    def to(self, device):
-        encodings = self.encodings.to(device)
-        ctx_masks = self.ctx_masks.to(device)
-
-        entity_masks = [m.to(device) for m in self.entity_masks]
-        entity_labels = self.entity_labels.to(device)
-
-        rel_labels = self.rel_labels.to(device)
-
-        token_masks = self.token_masks.to(device)
-        start_token_masks = self.start_token_masks.to(device)
-
-        return EvalTensorBatch(encodings, ctx_masks, entity_masks, entity_labels, rel_labels, token_masks, start_token_masks)
+        super().__init__(encodings, ctx_masks, entity_masks, 
+                         entity_labels, rel_labels, 
+                         token_masks, start_token_masks)
 
 
-class TrainTensorSample:
+class TensorSample:
     def __init__(self, encoding: torch.tensor, ctx_mask: torch.tensor,
                  entity_masks: torch.tensor,
                  entity_labels: torch.tensor, rel_labels: torch.tensor, 
@@ -92,61 +85,48 @@ class TrainTensorSample:
 
         self.token_masks = token_masks
         self.start_token_masks = start_token_masks
-
-
-class EvalTensorSample:
-    def __init__(self, encoding: torch.tensor, ctx_mask: torch.tensor,
-                 entity_masks: torch.tensor,
-                 entity_labels: torch.tensor, rel_labels: torch.tensor, 
-                 token_masks: torch.tensor, start_token_masks: torch.tensor):
-        self.encoding = encoding
-        self.ctx_mask = ctx_mask
         
-        self.entity_masks = entity_masks
-        self.entity_labels = entity_labels
 
-        self.rel_labels = rel_labels
+class TrainTensorSample(TensorSample):
+    def __init__(self, encoding: torch.tensor, ctx_mask: torch.tensor,
+                 entity_masks: torch.tensor,
+                 entity_labels: torch.tensor, rel_labels: torch.tensor, 
+                 token_masks: torch.tensor, start_token_masks: torch.tensor):
+        
+        super().__init__(encoding, ctx_mask, entity_masks,
+                        entity_labels, rel_labels, token_masks, start_token_masks)
 
-        self.token_masks = token_masks
-        self.start_token_masks = start_token_masks
 
+class EvalTensorSample(TensorSample):
+    def __init__(self, encoding: torch.tensor, ctx_mask: torch.tensor,
+                 entity_masks: torch.tensor,
+                 entity_labels: torch.tensor, rel_labels: torch.tensor, 
+                 token_masks: torch.tensor, start_token_masks: torch.tensor):
+        
+        super().__init__(encoding, ctx_mask, entity_masks,
+                        entity_labels, rel_labels, token_masks, start_token_masks)
+
+        
 class Sampler:
-    def __init__(self, processes: int, limit: int):
-        # multiprocessing
-        self._processes = processes
-        self._limit = limit
-        self._ctx = multiprocessing.get_context("spawn") if processes > 0 else None
-        self._manager = self._ctx.Manager() if processes > 0 else None
-        self._pool = self._ctx.Pool(processes=processes) if processes > 0 else None
+    def __init__(self):
+        return
 
     def create_train_sampler(self, dataset: Dataset, batch_size: int, context_size: int,
                              order: Iterable = None, truncate: bool = False):
-        train_sampler = TrainSampler(dataset, batch_size, context_size, order, truncate,
-                                     self._manager, self._pool, self._processes, self._limit)
+        train_sampler = TrainSampler(dataset, batch_size, context_size, order, truncate)
         return train_sampler
 
     def create_eval_sampler(self, dataset: Dataset, batch_size: int, context_size: int,
                             order: Iterable = None, truncate: bool = False):
-        eval_sampler = EvalSampler(dataset, batch_size, context_size,
-                                   order, truncate, self._manager, self._pool, self._processes, self._limit)
+        eval_sampler = EvalSampler(dataset, batch_size, context_size, order, truncate)
         return eval_sampler
 
-    def join(self):
-        if self._processes > 0:
-            self._pool.close()
-            self._pool.join()
 
 
 class BaseSampler(ABC):
-    def __init__(self, mp_func, manager, pool, processes, limit):
+    def __init__(self, mp_func):
         # multiprocessing
         self._mp_func = mp_func
-        self._manager = manager
-        self._pool = pool
-        self._processes = processes
-
-        # avoid large memory consumption (e.g. in case of slow evaluation)
-        self._semaphore = self._manager.Semaphore(limit) if processes > 0 else None
 
         self._current_batch = 0
         self._results = None
@@ -158,13 +138,7 @@ class BaseSampler(ABC):
 
     def __next__(self):
         if self._current_batch < len(self._batches):
-            if self._processes > 0:
-                # multiprocessing
-                batch, _ = self._results.next()
-                self._semaphore.release()
-            else:
-                # no multiprocessing
-                batch, _ = self._mp_func(self._batches[self._current_batch])
+            batch, _ = self._mp_func(self._batches[self._current_batch])
 
             self._current_batch += 1
             return batch
@@ -172,16 +146,14 @@ class BaseSampler(ABC):
             raise StopIteration
 
     def __iter__(self):
-        if self._processes > 0:
-            # multiprocessing
-            self._results = self._pool.imap(self._mp_func, self._batches)
         return self
-
+        
 
 class TrainSampler(BaseSampler):
-    def __init__(self, dataset, batch_size, context_size, order, truncate, manager, pool, processes, limit):
-        super().__init__(_produce_train_batch, manager, pool, processes, limit)
-
+    def __init__(self, dataset, batch_size, context_size, order, truncate):
+        
+        super().__init__(_produce_train_batch)
+        
         self._dataset = dataset
         self._batch_size = batch_size
         self._context_size = context_size
@@ -193,7 +165,7 @@ class TrainSampler(BaseSampler):
         prep_batches = []
 
         for i, batch in enumerate(batches):
-            prep_batches.append((i, batch, self._context_size, self._semaphore))
+            prep_batches.append((i, batch, self._context_size))
 
         return prep_batches
 
@@ -203,10 +175,10 @@ class TrainSampler(BaseSampler):
 
 
 class EvalSampler(BaseSampler):
-    def __init__(self, dataset, batch_size, context_size,
-                 order, truncate, manager, pool, processes, limit):
-        super().__init__(_produce_eval_batch, manager, pool, processes, limit)
-
+    def __init__(self, dataset, batch_size, context_size, order, truncate):
+        
+        super().__init__(_produce_eval_batch)
+        
         self._dataset = dataset
         self._batch_size = batch_size
         self._context_size = context_size
@@ -218,7 +190,7 @@ class EvalSampler(BaseSampler):
         prep_batches = []
 
         for i, batch in enumerate(batches):
-            prep_batches.append((i, batch, self._context_size, self._semaphore))
+            prep_batches.append((i, batch, self._context_size))
 
         return prep_batches
 
@@ -228,11 +200,9 @@ class EvalSampler(BaseSampler):
 
 
 def _produce_train_batch(args):
-    i, docs, context_size, semaphore = args
 
-    if semaphore is not None:
-        semaphore.acquire()
-
+    i, docs, context_size = args
+    
     samples = []
     for d in docs:
         sample = _create_train_sample(d, context_size)
@@ -244,10 +214,7 @@ def _produce_train_batch(args):
 
 
 def _produce_eval_batch(args):
-    i, docs, context_size, semaphore = args
-
-    if semaphore is not None:
-        semaphore.acquire()
+    i, docs, context_size = args
 
     samples = []
     for d in docs:

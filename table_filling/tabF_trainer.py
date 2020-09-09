@@ -57,7 +57,7 @@ class TableFTrainer(BaseTrainer):
         self._examples_path = os.path.join(self._log_path, 'examples_%s_%s_epoch_%s.html')
 
         # sampler (create and batch training/evaluation samples)
-        self._sampler = Sampler(processes=args.sampling_processes, limit=args.sampling_limit)
+        self._sampler = Sampler()
 
         self._best_results['ner_micro_f1'] = 0
         self._best_results['rel_micro_f1'] = 0
@@ -110,9 +110,14 @@ class TableFTrainer(BaseTrainer):
                                             freeze_transformer=self.args.freeze_transformer,
                                             device=self._device)
 
-
+            
+#         if self._device.type != 'cpu':
+#             torch.distributed.init_process_group(backend='nccl', world_size=3, init_method='...')
+#             model = torch.nn.parallel.DistributedDataParallel(model)
+            
         model.to(self._device)
-
+#         model.to(f'cuda:{model.device_ids[0]}')
+    
         # create optimizer
         optimizer_params = self._get_optimizer_params(model)
         optimizer = AdamW(optimizer_params, lr=args.lr, weight_decay=args.weight_decay, correct_bias=False)
@@ -174,7 +179,6 @@ class TableFTrainer(BaseTrainer):
         self._logger.info("Logged in: %s" % self._log_path)
         self._logger.info("Saved in: %s" % self._save_path)
 
-        self._sampler.join()
 
     def eval(self, dataset_path: str, types_path: str, input_reader_cls: BaseInputReader):
         args = self.args
@@ -221,7 +225,6 @@ class TableFTrainer(BaseTrainer):
         self._eval(model, compute_loss, input_reader.get_dataset(dataset_label), input_reader)
         self._logger.info("Logged in: %s" % self._log_path)
 
-        self._sampler.join()
 
     def _train_epoch(self, model: torch.nn.Module, compute_loss: Loss, 
                     optimizer: Optimizer, dataset: Dataset,
@@ -250,8 +253,9 @@ class TableFTrainer(BaseTrainer):
         for batch in tqdm(sampler, total=total, desc='Train epoch %s' % epoch):
             
             model.train()
+#             batch = batch.to(f'cuda:{model.device_ids[0]}')
             batch = batch.to(self._device)
-
+            # print("iteration:", global_iteration)
             if global_iteration < steps_before_rel:
                 # do entity detection only.
                 allow_rel = False
@@ -259,12 +263,12 @@ class TableFTrainer(BaseTrainer):
                 allow_rel = True
 
 
-
-
             if self.args.model_type == 'table_filling':
                 entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.start_token_masks)
+
+
                 entity_logits, rel_logits = model(batch.encodings, batch.ctx_masks, 
-                    batch.token_masks, start_labels, entity_labels, batch.entity_masks, allow_rel)
+                    batch.token_masks, entity_labels, batch.entity_masks, allow_rel)
                 loss = compute_loss.compute(entity_logits, entity_labels, rel_logits, rel_labels, batch.start_token_masks) 
                            
             # logging
