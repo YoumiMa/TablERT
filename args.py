@@ -6,7 +6,7 @@ def _add_common_args(arg_parser):
 
     # Input
     arg_parser.add_argument('--types_path', type=str, help="Path to type specifications")
-    arg_parser.add_argument('--bio_path', type=str, help="Path to evaluation output of BIO tagging scheme")
+    arg_parser.add_argument('--bio_path', type=str, default='output.bio',help="Path to evaluation output of BIO tagging scheme")
     # Preprocessing
     arg_parser.add_argument('--tokenizer_path', type=str, help="Path to tokenizer")
     arg_parser.add_argument('--lowercase', action='store_true', default=False,

@@ -68,7 +68,7 @@ class Evaluator:
                 ##### Relation.
                 rel_scores, rel_preds = rel_clf.squeeze(0).max(dim=0)
 
-#                 pred_relations = []
+#                pred_relations = []
                 pred_relations = self._convert_pred_relations_(rel_preds, rel_scores, 
                                                                 pred_entities, batch.token_masks[i])
 

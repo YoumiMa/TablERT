@@ -72,8 +72,9 @@ class TableF(BertPreTrainedModel):
         prev_seq = torch.cat([torch.tensor([0]).to(self._device), gold_seq])
         prev_label = self.entity_label_embedding(prev_seq[:-1])
 
-        entity_repr = torch.cat([self.dropout(curr_word_repr) - 1, self.dropout(prev_entity_pooled) - 1, prev_label], dim=1).unsqueeze(0)
+        entity_repr = torch.cat([curr_word_repr - 1, prev_entity_pooled - 1, prev_label], dim=1).unsqueeze(0)
 
+        entity_repr = self.dropout(entity_repr)
         curr_entity_logits = self.entity_classifier(entity_repr)
 
         return curr_word_repr, curr_entity_logits
@@ -96,7 +97,8 @@ class TableF(BertPreTrainedModel):
         entity_label_pool = entity_label_repr.max(dim=1)[0]
 
 
-        rel_embedding = torch.cat([self.dropout(entity_repr_pool).unsqueeze(0) - 1, entity_label_pool.unsqueeze(0)], dim=2)
+        rel_embedding = torch.cat([entity_repr_pool.unsqueeze(0) - 1, entity_label_pool.unsqueeze(0)], dim=2)
+        rel_embedding = self.dropout(rel_embedding)
         rel_logits = self.rel_classifier(rel_embedding, rel_embedding, rel_embedding)
 
         return rel_logits
