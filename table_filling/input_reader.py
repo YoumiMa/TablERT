@@ -247,6 +247,7 @@ class JsonInputReader(BaseInputReader):
             token_encoding = self._tokenizer.encode(token_phrase, add_special_tokens=False)
             span_start, span_end = (len(doc_encoding), len(doc_encoding) + len(token_encoding))
             token = dataset.create_token(i, span_start, span_end, token_phrase)
+#             print(self._tokenizer.convert_ids_to_tokens(token_encoding))
             doc_tokens.append(token)
             doc_encoding += token_encoding
         doc_encoding += [self._tokenizer.convert_tokens_to_ids('[SEP]')]
