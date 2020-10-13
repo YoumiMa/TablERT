@@ -1,2 +1,0 @@
-{"entities": {"Loc": {"short": "Loc", "verbose": "Location"}, "Peop": {"short": "Peop", "verbose":"People"}}, 
-"relations": {"Live_In": {"short": "Live", "verbose": "Live in", "symmetric": false} }}

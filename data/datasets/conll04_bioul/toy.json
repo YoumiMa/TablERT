@@ -1,1 +1,0 @@
-[{"tokens": ["In", "1913", ",", "Olympic", "legend", "Jesse", "Owens", "was", "born", "in", "Danville", ",", "Ala."], "relations": [{"type": "Live_In", "head": 0, "tail": 1}], "orig_id": 5294, "tags": ["O", "O", "O", "O", "O", "B-Peop", "L-Peop", "O", "O", "O", "B-Loc", "I-Loc", "L-Loc"]}]

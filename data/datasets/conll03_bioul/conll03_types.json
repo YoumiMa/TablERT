@@ -1,2 +1,0 @@
-{"entities": {"LOC": {"short": "LOC", "verbose": "Location"}, "ORG": {"short": "ORG", "verbose": "Organization"}, "PER": {"short": "PER", "verbose":"Persons"}, "MISC": {"short": "MISC", "verbose": "Miscellaneous Names"}}, 
-"relations": {}}
