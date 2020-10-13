@@ -119,8 +119,11 @@ class TableFTrainer(BaseTrainer):
 #         model.to(f'cuda:{model.device_ids[0]}')
     
         # create optimizer
+
         optimizer_params = self._get_optimizer_params(model)
         optimizer = AdamW(optimizer_params, lr=args.lr, weight_decay=args.weight_decay, correct_bias=False)
+        
+#         other_optimizer_params = self._get_optimizer_params([])
         # create scheduler
 
         if args.scheduler == 'constant':
@@ -269,8 +272,12 @@ class TableFTrainer(BaseTrainer):
 
                 entity_logits, rel_logits = model(batch.encodings, batch.ctx_masks, 
                     batch.token_masks, entity_labels, batch.entity_masks, allow_rel)
+                
                 loss = compute_loss.compute(entity_logits, entity_labels, rel_logits, rel_labels, batch.start_token_masks) 
-                           
+            
+#             for n,p in model.named_parameters():
+#                 if "entity" in n:
+#                     print(n,p)
             # logging
             iteration += 1
             global_iteration = epoch * updates_epoch + iteration
@@ -328,13 +335,17 @@ class TableFTrainer(BaseTrainer):
         return ner_eval, rel_eval, rel_ner_eval
 
     def _get_optimizer_params(self, model):
-        param_optimizer = list(model.named_parameters())
+        
+        params = list(model.named_parameters())
         no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
         optimizer_params = [
-            {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)],
+            {'params': [p for n, p in params if not any(nd in n for nd in no_decay) and not 'bert' in n],
              'weight_decay': self.args.weight_decay},
-            {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}]
-
+            {'params': [p for n, p in params if any(nd in n for nd in no_decay) and not 'bert' in n], 'weight_decay': 0.0},
+            {'params': [p for n, p in params if not any(nd in n for nd in no_decay) and 'bert' in n],
+             'weight_decay': self.args.weight_decay, 'lr': 5e-5},
+            {'params': [p for n, p in params if any(nd in n for nd in no_decay) and 'bert' in n],
+             'weight_decay': 0.0, 'lr': 5e-5}]
         return optimizer_params
 
     def _log_train(self, optimizer: Optimizer, loss: float, epoch: int,

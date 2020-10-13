@@ -142,8 +142,8 @@ class TableF(BertPreTrainedModel):
             curr_word_repr = word_h_pooled[1:-1].contiguous()
             
 #             curr_rel_logits = self._forward_relation(curr_word_repr, entity_preds_soft , diag_entity_mask)
-            curr_rel_logits = self._forward_relation(curr_word_repr, entity_preds.squeeze(0) , diag_entity_mask)
-#             curr_rel_logits = self._forward_relation(curr_word_repr, gold_entity[batch] , entity_masks[batch])
+#             curr_rel_logits = self._forward_relation(curr_word_repr, entity_preds.squeeze(0) , diag_entity_mask)
+            curr_rel_logits = self._forward_relation(curr_word_repr, gold_entity[batch] , entity_masks[batch])
             all_rel_logits.append(curr_rel_logits)
 
         if allow_rel:

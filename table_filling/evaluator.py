@@ -63,7 +63,7 @@ class Evaluator:
                 entity_scores = batch_entity_scores[i]
                 rel_clf = torch.softmax(batch_rel_clf[i], dim=1)
 
-                pred_entities = self._convert_pred_entities_start(entity_preds, entity_scores, 
+                pred_entities = self._convert_pred_entities_end(entity_preds, entity_scores, 
                     batch.token_masks[i])
                 ##### Relation.
                 rel_scores, rel_preds = rel_clf.squeeze(0).max(dim=0)
@@ -214,8 +214,7 @@ class Evaluator:
 
 
     def _convert_pred_entities_end(self, pred_types: torch.tensor, pred_scores: torch.tensor, 
-                                token_mask: torch.tensor, 
-                                start_labels: List[int], end_labels: List[int]):
+                                token_mask: torch.tensor):
         #### for word-level.
         converted_preds = []
         
@@ -228,8 +227,10 @@ class Evaluator:
             type_idx = pred_types[i].item()
             score = pred_scores[i].item()
             curr_type = math.ceil(type_idx/4)
+            
+            is_end = type_idx % 2 == 0
 
-            if type_idx in end_labels and curr_type != 0:
+            if is_end and curr_type != 0:
 
                 end = curr_token[-1].item() + 2
                 entity_type = self._input_reader.get_entity_type(curr_type)
