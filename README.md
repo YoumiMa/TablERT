@@ -23,6 +23,8 @@ Optional
 
 We assume the processed CoNLL04 [2] data are already located in the folder `data/datasets/`, following the data split of [1] and [3]. (not provided along with this software)
 
+To obtain the data, it might be convenient to use our pre-processing script, i.e, data_processing.py. To envoke the script, json files provided by SpERT (https://github.com/markus-eberts/spert), and files recording the BILOU-format annotations for the dataset provided by another project (http://cistern.cis.lmu.de/globalNormalization/) should be used. 
+
 ## Training
 
 To train a model on CoNLL04 train set and evaluate on CoNLL04 development set, run
@@ -40,7 +42,8 @@ python ./table_filling.py eval --config configs_example/eval_conll04.conf
 
 # References
 ```
-[1]Markus Eberts and Adrian Ulges. 2020.  Span-based joint entity and relation extraction with transformerpre-training. In 24th European Conference on Artifi-cial Intelligence (ECAI).
-[2]Dan Roth and Wen-tau Yih, ‘A Linear Programming Formulation forGlobal Inference in Natural Language Tasks’, in Proc. of CoNLL 2004 at HLT-NAACL 2004, pp. 1–8, Boston, Massachusetts, USA, (May 6 -May 7 2004). ACL.
-[3]Pankaj Gupta,  Hinrich Schütze, and Bernt Andrassy, ‘Table Filling Multi-Task Recurrent  Neural  Network  for  Joint  Entity  and  Relation Extraction’, in Proc. of COLING 2016, pp. 2537–2547, Osaka, Japan, (December 2016). The COLING 2016 Organizing Committee.
+[1]Markus Eberts and Adrian Ulges, 2020, 'Span-based joint entity and relation extraction with transformerpre-training' In 24th European Conference on Artifi-cial Intelligence (ECAI).
+[2]Dan Roth and Wen-tau Yih, 2004, ‘A Linear Programming Formulation forGlobal Inference in Natural Language Tasks’, in Proc. of CoNLL 2004 at HLT-NAACL 2004, pp. 1–8.
+[3]Pankaj Gupta, Hinrich Schütze, and Bernt Andrassy, 2016, ‘Table Filling Multi-Task Recurrent  Neural  Network  for  Joint  Entity  and  Relation Extraction’, in Proc. of COLING 2016, pp. 2537–2547.
+[4] Heike Adel and Hinrich Schütze, 2017, 'Global Normalization of Convolutional Neural Networks for Joint Entity and Relation Classification', EMNLP 2017, pp. 1723--1729. 
 ```

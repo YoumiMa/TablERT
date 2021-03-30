@@ -30,6 +30,7 @@ def _add_common_args(arg_parser):
     arg_parser.add_argument('--entity_label_embedding', type=int, default=50, help="Dimensionality of entity label embedding")
     arg_parser.add_argument('--prop_drop', type=float, default=0.1, help="Probability of dropout used in SpERT")
     arg_parser.add_argument('--freeze_transformer', action='store_true', default=False, help="Freeze BERT weights")
+    arg_parser.add_argument('--beam_size', type=int, default=1, help="Beam size for decoding")
 
     # Misc
     arg_parser.add_argument('--seed', type=int, default=None, help="Seed")
@@ -59,15 +60,12 @@ def train_argparser():
     arg_parser.add_argument('--train_batch_size', type=int, default=2, help="Training batch size")
     arg_parser.add_argument('--epochs', type=int, default=20, help="Number of epochs")
     arg_parser.add_argument('--before_rel', type=float, default=0.05, help="Proportion of total train iterations before carrying out relation detections")
-    arg_parser.add_argument('--neg_entity_count', type=int, default=0,
-                            help="Number of negative entity samples per document (sentence)")
-    arg_parser.add_argument('--neg_relation_count', type=int, default=0,
-                            help="Number of negative relation samples per document (sentence)")
     arg_parser.add_argument('--lr', type=float, default=5e-5, help="Learning rate")
+    arg_parser.add_argument('--lr_bert', type=float, default=5e-5, help="Learning rate")
     arg_parser.add_argument('--lr_warmup', type=float, default=0.1,
                             help="Proportion of total train iterations to warmup in linear increase/decrease schedule")
     arg_parser.add_argument('--scheduler', type=str, default='linear_warmup', help="LR scheduler type")
-    arg_parser.add_argument('--num_cycles', type=float, default= 2.0, help="Number of cycles for LR scheduler")
+    arg_parser.add_argument('--num_cycles', type=float, default= 3.0, help="Number of cycles for LR scheduler")
     arg_parser.add_argument('--weight_decay', type=float, default=0.01, help="Weight decay to apply")
     arg_parser.add_argument('--max_grad_norm', type=float, default=1.0, help="Maximum gradient norm")
 

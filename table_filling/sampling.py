@@ -227,6 +227,7 @@ def _produce_eval_batch(args):
 
 def _create_train_sample(doc, context_size, shuffle = False):
     encoding = doc.encoding
+#     print(doc.doc_id)
     token_count = len(doc.tokens)
 
     # positive entities
@@ -288,11 +289,11 @@ def _create_train_sample(doc, context_size, shuffle = False):
 
     for i,t in enumerate(tokens):
         token_masks[i+1, t.span_start:t.span_end] = 1
+#         print(t.span_start, t.span_end)
         start_token_masks[i+1, t.span_start] = 1
-
     # [SEP]
-    token_masks[i+2,t.span_end] = 1  
-    
+    token_masks[i+2,t.span_end] = 1
+#     print(entity_labels)
     return TrainTensorSample(encoding=encoding, ctx_mask=ctx_mask, entity_masks=entity_masks,
                             entity_labels=entity_labels, rel_labels=rel_labels, 
                             token_masks=token_masks, start_token_masks=start_token_masks)
@@ -311,7 +312,7 @@ def _create_eval_sample(doc, context_size):
 
 
     for e in doc.entities:
-        # print(e.phrase, e.tokens)
+#         print(e.phrase, [t for t in e.tokens], e.entity_labels)
         entity_labels.append(create_entity_mask(*e.span, context_size).to(torch.long))       
         entity_masks[e.tokens[0].index + 1 :e.tokens[-1].index + 2, e.tokens[0].index + 1 : e.tokens[-1].index + 2] = 1     
         for i, t in enumerate(e.tokens):

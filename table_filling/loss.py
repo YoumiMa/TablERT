@@ -10,6 +10,8 @@ class Loss(ABC):
 
 
 class TableLoss(Loss):
+    """ Compute the loss for training joint entity and relation extraction."""
+    
     def __init__(self, rel_criterion, entity_criterion, model, optimizer = None, scheduler = None, max_grad_norm = None):
         self._rel_criterion = rel_criterion
         self._entity_criterion = entity_criterion
@@ -21,30 +23,30 @@ class TableLoss(Loss):
 
 
     def compute(self, entity_logits, entity_labels, rel_logits, rel_labels, token_masks, is_eval=False):
-        # entity loss
+
 
         entity_loss = torch.tensor(0., dtype=torch.float).to(self._device)
         rel_loss = torch.tensor(0., dtype=torch.float).to(self._device)
 
         for b, batch_logits in enumerate(entity_logits):
+            
             batch_entities = entity_labels[b]
             loss = self._entity_criterion(batch_logits.squeeze(0), batch_entities)
-
             entity_loss += loss.sum()
 
         if rel_logits != [] and rel_labels != []:
             for b, batch_logits in enumerate(rel_logits):
                 batch_labels = rel_labels[b]
+                batch_logits = batch_logits 
                 if batch_labels.nelement() == 0:
                     continue
                 batch_loss = self._rel_criterion(batch_logits, batch_labels.unsqueeze(0))
-
                 batch_loss_masked = torch.triu(batch_loss, diagonal=1)
-
-                rel_loss += batch_loss_masked.sum() 
+                
+                rel_loss += batch_loss_masked.sum()
+                
 
         train_loss =  entity_loss + rel_loss 
-#         train_loss = rel_loss
 
         
         if not is_eval:

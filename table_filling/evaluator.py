@@ -3,6 +3,8 @@ import warnings
 from typing import List, Tuple, Dict
 
 import torch
+import torch.nn as nn
+
 import math, codecs, json
 from sklearn.metrics import precision_recall_fscore_support as prfs
 from transformers import BertTokenizer
@@ -45,34 +47,43 @@ class Evaluator:
         self._pseudo_entity_type = EntityType([self._pseudo_entity_label], 1, 'Entity', 'Entity')  # for span only evaluation
 
         self._convert_gt(self._dataset.documents)
+        self._beam_ids = []
 
 
     def eval_batch(self, batch_entity_preds: List[torch.tensor], 
                     batch_entity_scores: List[torch.tensor],
-                    batch_rel_clf: List[torch.tensor],
-                   batch: EvalTensorBatch, gold_labels: List[int]):
+                    batch_rel_logits: List[torch.tensor],
+                   batch: EvalTensorBatch,
+                  ent_labels: List[torch.tensor],
+                  rel_labels: List[torch.tensor]):
         
         batch_size = len(batch_entity_preds)
         for i in range(batch_size):
             # get model predictions for sample
 
+            entity_preds = batch_entity_preds[i]
+            entity_scores = batch_entity_scores[i]
+            rel_logits = batch_rel_logits[i] / torch.sqrt(torch.abs(batch_rel_logits[i]))
+            # select highest relation score at each cell
+            rel_scores, rel_preds = rel_logits.max(dim=1)
 
-            if self._model_type == 'table_filling':
+            # reduce the scale of relation scores by sequence length.
+            ent_rel_scores = entity_scores + rel_scores.triu(diagonal=1).sum(-1).sum(-1) / entity_preds.shape[-1]
+            beam_id = ent_rel_scores.argmax(dim=0)
+            self._beam_ids.append(beam_id)
 
-                entity_preds = batch_entity_preds[i]
-                entity_scores = batch_entity_scores[i]
-                rel_clf = torch.softmax(batch_rel_clf[i], dim=1)
+            rel_clf = torch.softmax(rel_logits[beam_id], dim=0)
 
-                pred_entities = self._convert_pred_entities_end(entity_preds, entity_scores, 
-                    batch.token_masks[i])
-                ##### Relation.
-                rel_scores, rel_preds = rel_clf.squeeze(0).max(dim=0)
+            pred_entities = self._convert_pred_entities_end(entity_preds[beam_id], entity_scores[beam_id], 
+                batch.token_masks[i])
+            ##### Relation.
+            rel_scores, rel_preds = rel_clf.squeeze(0).max(dim=0)
 
-#                pred_relations = []
-                pred_relations = self._convert_pred_relations_(rel_preds, rel_scores, 
-                                                                pred_entities, batch.token_masks[i])
+#             pred_relations = []
+            pred_relations = self._convert_pred_relations_(rel_preds, rel_scores, 
+                                                            pred_entities, batch.token_masks[i])
 
-                self.update_bio_file(entity_preds)
+            self.update_bio_file(entity_preds[beam_id])
                     
             self._pred_entities.append(pred_entities)
             self._pred_relations.append(pred_relations)  
@@ -83,7 +94,7 @@ class Evaluator:
         pred_tags = []
         
         for i in range(preds.shape[-1]):
-            tag = self._input_reader._idx2entity_label[preds[i].item()].verbose_name
+            tag = self._input_reader._idx2entity_label[preds[i].item()].short_name
             if tag.startswith('U'):
                 tag = 'B' + tag[1:]
             elif tag.startswith('L'):
@@ -104,8 +115,8 @@ class Evaluator:
         preds = self._input_reader._bio_file['preds']
         
         contents = []
-        for t in range(len(tokens)):
-            contents.append([list(i) for i in zip(tokens[t], tags[t], preds[t])])
+#         for t in range(len(tokens)):
+#             contents.append([list(i) for i in zip(tokens[t], tags[t], preds[t])])
 
         with open(file_path, 'w+') as f:
             for sentence in contents:
@@ -140,6 +151,10 @@ class Evaluator:
         gt, pred = self._convert_by_setting(self._gt_relations, self._pred_relations, include_entity_types=True)
         rel_ner_eval = self._score(gt, pred, print_results=True)
 
+        with open('beam_ids', 'w+') as f:
+            for i in self._beam_ids:
+                f.write("%s\n" % i)
+                
         return ner_eval, rel_eval,rel_ner_eval
 
     def store_examples(self):
@@ -225,7 +240,7 @@ class Evaluator:
         for i in range(pred_types.shape[0]):
             curr_token = token_mask[i+1][1:encoding_length-1].nonzero()
             type_idx = pred_types[i].item()
-            score = pred_scores[i].item()
+            score = pred_scores.item()
             curr_type = math.ceil(type_idx/4)
             
             is_end = type_idx % 2 == 0
@@ -244,7 +259,6 @@ class Evaluator:
                 start = curr_token[-1].item() + 2       
 
 
-        # exit(-1)
         return converted_preds
 
 
@@ -259,7 +273,7 @@ class Evaluator:
         for i in range(pred_types.shape[0]):
             curr_token = token_mask[i+1][1:encoding_length-1].nonzero()
             type_idx = pred_types[i].item()
-            score = pred_scores[i].item()
+            score = pred_scores.item()
             
             is_start = type_idx % 4 == 1 or type_idx % 4 == 2 or type_idx == 0
             
@@ -289,7 +303,6 @@ class Evaluator:
                                 pred_entities: List[tuple], token_mask: torch.tensor):
         converted_rels = []
         pred_types = torch.triu(pred_types, diagonal=1)
-
         for i,j in pred_types.nonzero():
             label_idx = pred_types[i,j].float()
             pred_rel_type = self._input_reader.get_relation_type(torch.ceil(label_idx/2).item())
@@ -437,7 +450,7 @@ class Evaluator:
     def _convert_example(self, doc: Document, gt: List[Tuple], pred: List[Tuple],
                          include_entity_types: bool, to_html):
         encoding = doc.encoding
-
+    
         gt, pred = self._convert_by_setting([gt], [pred], include_entity_types=include_entity_types, include_score=True)
 
         gt, pred = gt[0], pred[0]

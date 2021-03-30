@@ -213,32 +213,36 @@ class JsonInputReader(BaseInputReader):
             self._parse_document(document, dataset)
 
     def _parse_document(self, doc, dataset) -> Document:
+        
         jtokens = doc['tokens']
         jrelations = doc['relations']
         jtags = doc['tags']
+        doc_id = doc['orig_id']
         
         if dataset.label != 'train':
             self._update_bio_file_info(jtokens, jtags)
 
         # parse tokens
-        doc_tokens, doc_encoding = self._parse_tokens(jtokens, dataset)
-
+        doc_tokens, doc_encoding = self._parse_tokens(doc_id, jtokens, dataset)
 
         # parse entity mentions
-        entities = self._parse_entities(jtags, doc_tokens, dataset)
-
+        entities = self._parse_entities(doc_id, jtags, doc_tokens, dataset)
 
         # parse relations
-        relations = self._parse_relations(jrelations, entities, dataset)
+        relations = self._parse_relations(doc_id, jrelations, entities, dataset)
 
         # create document
-        document = dataset.create_document(doc_tokens, entities, relations, doc_encoding)
+        document = dataset.create_document(doc_id, doc_tokens, entities, relations, doc_encoding)
+        
+        
 
         return document
 
-    def _parse_tokens(self, jtokens, dataset):
+    def _parse_tokens(self, doc_id, jtokens, dataset):
         doc_tokens = []
 
+        if doc_id in dataset._documents:
+            return dataset._documents[doc_id]._tokens, dataset._documents[doc_id].encoding
         # full document encoding including special tokens ([CLS] and [SEP]) and byte-pair encodings of original tokens
         doc_encoding = [self._tokenizer.convert_tokens_to_ids('[CLS]')]
 
@@ -253,7 +257,7 @@ class JsonInputReader(BaseInputReader):
         doc_encoding += [self._tokenizer.convert_tokens_to_ids('[SEP]')]
         return doc_tokens, doc_encoding
 
-    def _parse_entities(self, jtags, doc_tokens, dataset) -> List[Entity]:
+    def _parse_entities(self, doc_id, jtags, doc_tokens, dataset) -> List[Entity]:
         
         entities = []
         entity_labels = []
@@ -268,7 +272,7 @@ class JsonInputReader(BaseInputReader):
                     end = idx + 1
                     tokens = doc_tokens[start:end]
                     phrase = " ".join([t.phrase for t in tokens])
-                    entity = dataset.create_entity(entity_type, entity_labels, tokens, phrase)
+                    entity = dataset.create_entity(doc_id, entity_type, entity_labels, tokens, phrase)
                     entities.append(entity)
                     entity_labels = []
 
@@ -297,7 +301,7 @@ class JsonInputReader(BaseInputReader):
         return entities
 
 
-    def _parse_relations(self, jrelations, entities, dataset) -> List[Relation]:
+    def _parse_relations(self, doc_id, jrelations, entities, dataset) -> List[Relation]:
         relations = []
 
         for jrelation in jrelations:
@@ -305,23 +309,16 @@ class JsonInputReader(BaseInputReader):
 
             head_idx = jrelation['head']
             tail_idx = jrelation['tail']
-
-            if head_idx < tail_idx:
-                relation_label = self._relation_labels['R-' + jrelation['type']]
-            else:
-                relation_label = self._relation_labels['L-' + jrelation['type']]
             
             # create relation
             head = entities[head_idx]
             tail = entities[tail_idx]
-
-            reverse = int(tail.tokens[0].index) < int(head.tokens[0].index)
-
-            # for symmetric relations: head occurs before tail in sentence
-            if relation_label.symmetric and reverse:
-                head, tail = util.swap(head, tail)
-
-            relation = dataset.create_relation(relation_type, relation_label, head_entity=head, tail_entity=tail, reverse=reverse)
+            if head.tokens[0].index < tail.tokens[0].index:
+                relation_label = self._relation_labels['R-' + jrelation['type']]
+            else:
+                relation_label = self._relation_labels['L-' + jrelation['type']]
+                
+            relation = dataset.create_relation(doc_id, relation_type, relation_label, head_entity=head, tail_entity=tail)
             relations.append(relation)
 
         return relations

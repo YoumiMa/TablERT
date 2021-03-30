@@ -5,16 +5,18 @@ import os
 import torch
 from torch.nn import DataParallel
 from torch.optim import Optimizer
+
 import transformers
 from transformers import AdamW
 from transformers import BertTokenizer
+from transformers import AlbertTokenizer, AlbertModel
 
 from table_filling import models
 from table_filling.entities import Dataset
 from table_filling.evaluator import Evaluator
 from table_filling.input_reader import JsonInputReader, BaseInputReader
 from table_filling.loss import TableLoss, Loss
-from table_filling.beam import BeamSearch
+
 from tqdm import tqdm
 from table_filling.sampling import Sampler
 from table_filling.trainer import BaseTrainer
@@ -49,9 +51,14 @@ class TableFTrainer(BaseTrainer):
         super().__init__(args)
 
         # byte-pair encoding
-        self._tokenizer = BertTokenizer.from_pretrained(args.tokenizer_path,
-                                                        do_lower_case=args.lowercase,
-                                                        cache_dir=args.cache_path)
+        if 'albert' in args.tokenizer_path:
+            self._tokenizer = AlbertTokenizer.from_pretrained(args.tokenizer_path,
+                                                             cache_dir=args.cache_path)
+        else:
+            self._tokenizer = BertTokenizer.from_pretrained(args.tokenizer_path,
+                                                            do_lower_case=args.lowercase,
+                                                            cache_dir=args.cache_path)
+        
 
         # path to export relation extraction examples to
         self._examples_path = os.path.join(self._log_path, 'examples_%s_%s_epoch_%s.html')
@@ -97,33 +104,28 @@ class TableFTrainer(BaseTrainer):
         model_class = models.get_model(self.args.model_type)
 
         # load model
-        if args.model_type == 'table_filling':
-            model = model_class.from_pretrained(self.args.model_path,
-                                            cache_dir=self.args.cache_path,
-                                            tokenizer= self._tokenizer,
-                                            # table_filling model parameters
-                                            relation_labels=input_reader.relation_label_count,
-                                            entity_labels=input_reader.entity_label_count,
-                                            att_hidden = self.args.att_hidden,
-                                            prop_drop=self.args.prop_drop,
-                                            entity_label_embedding=self.args.entity_label_embedding,
-                                            freeze_transformer=self.args.freeze_transformer,
-                                            device=self._device)
+        model = model_class.from_pretrained(self.args.model_path,
+                                        cache_dir=self.args.cache_path,
+                                        tokenizer= self._tokenizer,
+                                        # table_filling model parameters
+                                        entity_labels=input_reader.entity_label_count,
+                                        relation_labels=input_reader.relation_label_count,
+                                        att_hidden = self.args.att_hidden,
+                                        prop_drop=self.args.prop_drop,
+                                        entity_label_embedding=self.args.entity_label_embedding,
+                                        beam_size=self.args.beam_size,
+                                        freeze_transformer=self.args.freeze_transformer,
+                                        device=self._device)
 
             
-#         if self._device.type != 'cpu':
-#             torch.distributed.init_process_group(backend='nccl', world_size=3, init_method='...')
-#             model = torch.nn.parallel.DistributedDataParallel(model)
-            
         model.to(self._device)
-#         model.to(f'cuda:{model.device_ids[0]}')
     
         # create optimizer
 
         optimizer_params = self._get_optimizer_params(model)
         optimizer = AdamW(optimizer_params, lr=args.lr, weight_decay=args.weight_decay, correct_bias=False)
         
-#         other_optimizer_params = self._get_optimizer_params([])
+        
         # create scheduler
 
         if args.scheduler == 'constant':
@@ -149,9 +151,8 @@ class TableFTrainer(BaseTrainer):
         # create loss function
         rel_criterion = torch.nn.CrossEntropyLoss(reduction='none')
         entity_criterion = torch.nn.CrossEntropyLoss(reduction='none')
-
-        if args.model_type == 'table_filling':
-            compute_loss = TableLoss(rel_criterion, entity_criterion, model, optimizer, scheduler, args.max_grad_norm)
+        
+        compute_loss = TableLoss(rel_criterion, entity_criterion, model, optimizer, scheduler, args.max_grad_norm)
 
         # eval validation set
         if args.init_eval:
@@ -202,18 +203,18 @@ class TableFTrainer(BaseTrainer):
         model_class = models.get_model(self.args.model_type)
 
         # load model
-        if args.model_type == 'table_filling':
-            model = model_class.from_pretrained(self.args.model_path,
-                                            cache_dir=self.args.cache_path,
-                                            tokenizer= self._tokenizer,
-                                            # table_filling model parameters
-                                            relation_labels=input_reader.relation_label_count,
-                                            entity_labels=input_reader.entity_label_count,
-                                            att_hidden = self.args.att_hidden,
-                                            prop_drop=self.args.prop_drop,
-                                            entity_label_embedding=self.args.entity_label_embedding,
-                                            freeze_transformer=self.args.freeze_transformer,
-                                            device=self._device)
+        model = model_class.from_pretrained(self.args.model_path,
+                                        cache_dir=self.args.cache_path,
+                                        tokenizer= self._tokenizer,
+                                        # table_filling model parameters
+                                        entity_labels=input_reader.entity_label_count,
+                                        relation_labels=input_reader.relation_label_count,
+                                        att_hidden = self.args.att_hidden,
+                                        prop_drop=self.args.prop_drop,
+                                        entity_label_embedding=self.args.entity_label_embedding,
+                                        beam_size=self.args.beam_size,
+                                        freeze_transformer=self.args.freeze_transformer,
+                                        device=self._device)
 
         model.to(self._device)
 
@@ -236,11 +237,7 @@ class TableFTrainer(BaseTrainer):
                      start_labels: List[int], steps_before_rel: int):
         self._logger.info("Train epoch: %s" % epoch)
 
-        # sort data according to context size
-        # length_lst = [len(doc.encoding) for doc in dataset.documents]
-        # order = sorted(range(len(length_lst)), key=lambda k: length_lst[k])
 
-        # order = torch.randperm(dataset.document_count)
         order = None
 
         sampler = self._sampler.create_train_sampler(dataset, self.args.train_batch_size,
@@ -256,28 +253,18 @@ class TableFTrainer(BaseTrainer):
         for batch in tqdm(sampler, total=total, desc='Train epoch %s' % epoch):
             
             model.train()
-#             batch = batch.to(f'cuda:{model.device_ids[0]}')
             batch = batch.to(self._device)
-            # print("iteration:", global_iteration)
             if global_iteration < steps_before_rel:
                 # do entity detection only.
                 allow_rel = False
             else:
                 allow_rel = True
-
-
-            if self.args.model_type == 'table_filling':
-                entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.start_token_masks)
-
-
-                entity_logits, rel_logits = model(batch.encodings, batch.ctx_masks, 
-                    batch.token_masks, entity_labels, batch.entity_masks, allow_rel)
                 
-                loss = compute_loss.compute(entity_logits, entity_labels, rel_logits, rel_labels, batch.start_token_masks) 
-            
-#             for n,p in model.named_parameters():
-#                 if "entity" in n:
-#                     print(n,p)
+            entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.start_token_masks)
+            entity_logits, rel_logits = model(batch.encodings, batch.ctx_masks, batch.token_masks, entity_labels, batch.entity_masks, rel_labels, allow_rel)
+
+            loss = compute_loss.compute(entity_logits, entity_labels, rel_logits, rel_labels, batch.start_token_masks) 
+
             # logging
             iteration += 1
             global_iteration = epoch * updates_epoch + iteration
@@ -314,13 +301,11 @@ class TableFTrainer(BaseTrainer):
                 batch = batch.to(self._device)
 
                 # run model (forward pass)
-            
-                if self.args.model_type == 'table_filling':
-                    entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.start_token_masks)
-                    entity_logits, entity_scores, entity_preds, rel_clf = model(batch.encodings, batch.ctx_masks, batch.token_masks, entity_labels,batch.entity_masks, evaluate=True) 
-                    loss = compute_loss.compute(entity_logits, entity_labels, rel_clf, rel_labels, batch.start_token_masks, is_eval=True)  
-                    evaluator.eval_batch(entity_preds, entity_scores, rel_clf, batch, entity_labels)
-#                     evaluator.eval_batch(entity_labels, entity_scores, rel_clf, batch, entity_labels)
+                entity_labels, rel_labels = align_label(batch.entity_labels, batch.rel_labels, batch.start_token_masks)
+                entity_scores, entity_preds, rel_logits = model(batch.encodings, batch.ctx_masks, batch.token_masks, evaluate=True) 
+                
+                loss = torch.Tensor([0,0,0])
+                evaluator.eval_batch(entity_preds, entity_scores, rel_logits, batch, entity_labels, rel_labels)
 
 
         global_iteration = epoch * updates_epoch + iteration
@@ -343,9 +328,9 @@ class TableFTrainer(BaseTrainer):
              'weight_decay': self.args.weight_decay},
             {'params': [p for n, p in params if any(nd in n for nd in no_decay) and not 'bert' in n], 'weight_decay': 0.0},
             {'params': [p for n, p in params if not any(nd in n for nd in no_decay) and 'bert' in n],
-             'weight_decay': self.args.weight_decay, 'lr': 5e-5},
+             'weight_decay': self.args.weight_decay, 'lr': self.args.lr_bert},
             {'params': [p for n, p in params if any(nd in n for nd in no_decay) and 'bert' in n],
-             'weight_decay': 0.0, 'lr': 5e-5}]
+             'weight_decay': 0.0, 'lr': self.args.lr_bert}]
         return optimizer_params
 
     def _log_train(self, optimizer: Optimizer, loss: float, epoch: int,

@@ -13,7 +13,7 @@ def get_orig_dataset(file: str) -> List[Dict]:
     return data 
 
 
-def get_bioul_dataset(file: str) -> Dict[int, List[str]]:
+def get_bilou_dataset(file: str) -> Dict[int, List[str]]:
 
     objects = []
 
@@ -29,17 +29,16 @@ def get_bioul_dataset(file: str) -> Dict[int, List[str]]:
     contents.update(objects[8])
     for c in contents:
         contents[c] = contents[c].split()
-    # print(contents)
-    # for idx in bioul_idx:
+
 
     return contents
 
 
-def update_ner(orig: List[Dict] , bioul: Dict[int, List[str]]) -> List[Dict]:
+def update_ner(orig: List[Dict] , bilou: Dict[int, List[str]]) -> List[Dict]:
 
     for data in orig:
-        if data["orig_id"] in bioul:
-            data["tags"] = bioul[data["orig_id"]]
+        if data["orig_id"] in bilou:
+            data["tags"] = bilou[data["orig_id"]]
         data.pop("entities")
     return orig
 
@@ -57,14 +56,13 @@ def update_rel(dataset: List[Dict]) -> List[Dict]:
 
 
 
-def update_dataset(file: str, bioul_file: str) -> None:
+def update_dataset(file: str, bilou_file: str) -> None:
 
     orig_data = get_orig_dataset(file)
-    bioul_data = get_bioul_dataset(bioul_file)
-    new_data = update_ner(orig_data, bioul_data)
-    # new_data = update_rel(new_data)
+    bilou_data = get_bilou_dataset(bilou_file)
+    new_data = update_ner(orig_data, bilou_data)
     
-    target_dir = os.path.split(file)[0] + '_bioul'
+    target_dir = os.path.split(file)[0] + '_bilou'
 
     os.makedirs(target_dir, exist_ok=True)
 
@@ -76,6 +74,6 @@ def update_dataset(file: str, bioul_file: str) -> None:
 
 if __name__ == "__main__":
     if "-h" in sys.argv[1]:
-        print("python3 data_processing.py FILE BIOUL_FILE")
+        print("python3 data_processing.py FILE bilou_FILE")
     else:
         update_dataset(sys.argv[1], sys.argv[2])

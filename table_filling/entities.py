@@ -238,6 +238,7 @@ class Entity:
 
         self._tokens = tokens
         self._phrase = phrase
+        
 
     def as_tuple(self):
         return self._tokens[0].index+1, self._tokens[-1].index+2, self._entity_type
@@ -353,7 +354,7 @@ class Relation:
 
 
 class Document:
-    def __init__(self, doc_id: int, tokens: List[Token], 
+    def __init__(self, doc_id: str, tokens: List[Token], 
                 entities: List[Entity], relations: List[Relation],
                  encoding: List[int]):
         self._doc_id = doc_id  # ID within the corresponding dataset
@@ -366,6 +367,18 @@ class Document:
         self._encoding = encoding
 
 
+    def update_entities(self, entities):
+        for e in entities:
+            if e not in self.entities:
+                self.entities.append(e)
+        return
+    
+    def update_relations(self,relations):
+        for r in relations:
+            if r not in self.relations:
+                self.relations.append(r)
+        return
+    
     @property
     def doc_id(self):
         return self._doc_id
@@ -437,7 +450,7 @@ class Dataset:
         self._relations = OrderedDict()
 
         # current ids
-        self._doc_id = 0
+        self._doc_cnt = 0
         self._rid = 0
         self._eid = 0
         self._tid = 0
@@ -457,7 +470,12 @@ class Dataset:
         self._tid += 1
         return token
 
-    def create_entity(self, entity_type, entity_labels, tokens, phrase) -> Entity:
+    def create_entity(self, doc_id, entity_type, entity_labels, tokens, phrase) -> Entity:
+        
+        if doc_id in self._documents:
+            ents = [(e._tokens, e._entity_type) for e in self.entities]
+            if (tokens, entity_type) in ents:
+                return self.entities[ents.index((tokens, entity_type))]
 
         mention = Entity(self._eid, entity_type, entity_labels, tokens, phrase)
         self._entities[self._eid] = mention
@@ -467,16 +485,29 @@ class Dataset:
         return mention
 
 
-    def create_relation(self, relation_type, relation_label, head_entity, tail_entity, reverse=False) -> Relation:
+    def create_relation(self, doc_id, relation_type, relation_label, head_entity, tail_entity, reverse=False) -> Relation:
+        
+        if doc_id in self._documents:
+            rels = [(r.head_entity, r.tail_entity, r.relation_label) for r in self.relations]
+            if (head_entity, tail_entity, relation_label) in rels:
+                return self.relations[rels.index((head_entity, tail_entity, relation_label))]
+            
         relation = Relation(self._rid, relation_type, relation_label, head_entity, tail_entity, reverse)
         self._relations[self._rid] = relation
         self._rid += 1
         return relation
 
-    def create_document(self, tokens, entity_mentions, relations, doc_encoding) -> Document:
-        document = Document(self._doc_id, tokens, entity_mentions, relations, doc_encoding)
-        self._documents[self._doc_id] = document
-        self._doc_id += 1
+    def create_document(self, doc_id, tokens, entity_mentions, relations, doc_encoding) -> Document:
+        
+        if doc_id in self._documents:
+            self._documents[doc_id].update_entities(entity_mentions)
+            self._documents[doc_id].update_relations(relations)
+            return self._documents[doc_id]
+            
+            
+        document = Document(doc_id, tokens, entity_mentions, relations, doc_encoding)
+        self._documents[doc_id] = document
+        self._doc_cnt += 1
 
         return document
 
