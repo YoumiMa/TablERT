@@ -1,5 +1,5 @@
 # Named Entity Recognition and Relation Extraction using Enhanced Table Filling by Contextualized Representations
-This is the PyTorch code for conference submission 'Named Entity Recognition and Relation Extraction using Enhanced Table Filling by Contextualized Representations'.
+This is the PyTorch code for the preprint ['Named Entity Recognition and Relation Extraction using Enhanced Table Filling by Contextualized Representations'](https://arxiv.org/abs/2010.07522).
 The general framework of this software adopts that of [SpERT](https://github.com/markus-eberts/spert) [1].
 # Setup
 
@@ -40,6 +40,21 @@ To evalute a model on CoNLL04 test set, fill in the field `model_path` in `confi
 python ./table_filling.py eval --config configs_example/eval_conll04.conf
 ```
 
+# Citation
+
+If you use the provided code in your work, please cite the following paper:
+
+```
+@misc{ma2020named,
+      title={Named Entity Recognition and Relation Extraction using Enhanced Table Filling by Contextualized Representations}, 
+      author={Youmi Ma and Tatsuya Hiraoka and Naoaki Okazaki},
+      year={2020},
+      eprint={2010.07522},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL}
+}
+```
+
 # References
 ```
 [1]Markus Eberts and Adrian Ulges, 2020, 'Span-based joint entity and relation extraction with transformerpre-training' In 24th European Conference on Artifi-cial Intelligence (ECAI).
@@ -47,3 +62,5 @@ python ./table_filling.py eval --config configs_example/eval_conll04.conf
 [3]Pankaj Gupta, Hinrich Schütze, and Bernt Andrassy, 2016, ‘Table Filling Multi-Task Recurrent  Neural  Network  for  Joint  Entity  and  Relation Extraction’, in Proc. of COLING 2016, pp. 2537–2547.
 [4]Heike Adel and Hinrich Schütze, 2017, 'Global Normalization of Convolutional Neural Networks for Joint Entity and Relation Classification', EMNLP 2017, pp. 1723--1729. 
 ```
+
+
