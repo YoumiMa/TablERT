@@ -45,5 +45,5 @@ python ./table_filling.py eval --config configs_example/eval_conll04.conf
 [1]Markus Eberts and Adrian Ulges, 2020, 'Span-based joint entity and relation extraction with transformerpre-training' In 24th European Conference on Artifi-cial Intelligence (ECAI).
 [2]Dan Roth and Wen-tau Yih, 2004, ‘A Linear Programming Formulation forGlobal Inference in Natural Language Tasks’, in Proc. of CoNLL 2004 at HLT-NAACL 2004, pp. 1–8.
 [3]Pankaj Gupta, Hinrich Schütze, and Bernt Andrassy, 2016, ‘Table Filling Multi-Task Recurrent  Neural  Network  for  Joint  Entity  and  Relation Extraction’, in Proc. of COLING 2016, pp. 2537–2547.
-[4] Heike Adel and Hinrich Schütze, 2017, 'Global Normalization of Convolutional Neural Networks for Joint Entity and Relation Classification', EMNLP 2017, pp. 1723--1729. 
+[4]Heike Adel and Hinrich Schütze, 2017, 'Global Normalization of Convolutional Neural Networks for Joint Entity and Relation Classification', EMNLP 2017, pp. 1723--1729. 
 ```
