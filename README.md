@@ -23,7 +23,7 @@ Optional
 
 We assume the processed CoNLL04 [2] data are already located in the folder `data/datasets/`, following the data split of [1] and [3]. (not provided along with this software)
 
-To obtain the data, it might be convenient to use our pre-processing script, i.e, data_processing.py. To envoke the script, json files provided by SpERT (https://github.com/markus-eberts/spert), and files recording the BILOU-format annotations for the dataset provided by another project (http://cistern.cis.lmu.de/globalNormalization/) should be used. 
+To obtain the data, it might be convenient to use our pre-processing script, i.e, data_processing.py. To envoke the script, json files provided by [SpERT](https://github.com/markus-eberts/spert), and files recording the BILOU-format annotations for the dataset provided by another project [GlobalNormalization](http://cistern.cis.lmu.de/globalNormalization/) should be used. 
 
 ## Training
 
