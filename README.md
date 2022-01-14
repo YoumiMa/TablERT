@@ -1,5 +1,5 @@
-# Named Entity Recognition and Relation Extraction using Enhanced Table Filling by Contextualized Representations
-This is the PyTorch code for the preprint ['Named Entity Recognition and Relation Extraction using Enhanced Table Filling by Contextualized Representations'](https://arxiv.org/abs/2010.07522).
+# TabERT: Named Entity Recognition and Relation Extraction using Enhanced Table Filling by Contextualized Representations
+This is the PyTorch code for the preprint ['Named Entity Recognition and Relation Extraction using Enhanced Table Filling by Contextualized Representations'](https://arxiv.org/abs/2010.07522) (TabERT).
 The general framework of this software adopts that of [SpERT](https://github.com/markus-eberts/spert) [1].
 # Setup
 
