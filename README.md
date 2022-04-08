@@ -1,5 +1,5 @@
 # TablERT: Named Entity Recognition and Relation Extraction using Enhanced Table Filling by Contextualized Representations
-This is the PyTorch code for the preprint ['Named Entity Recognition and Relation Extraction using Enhanced Table Filling by Contextualized Representations'](https://arxiv.org/abs/2010.07522) (TablERT).
+This is the PyTorch code for the preprint ['Named Entity Recognition and Relation Extraction using Enhanced Table Filling by Contextualized Representations'](https://arxiv.org/abs/2010.07522) (TablERT). An extended version of this paper is accepted as a journal paper at [JNLP](https://www.jstage.jst.go.jp/article/jnlp/29/1/29_187/_article/-char/ja).
 The general framework of this software adopts that of [SpERT](https://github.com/markus-eberts/spert) [1].
 # Setup
 
@@ -45,13 +45,15 @@ python ./table_filling.py eval --config configs_example/eval_conll04.conf
 If you use the provided code in your work, please cite the following paper:
 
 ```
-@misc{ma2020named,
-      title={Named Entity Recognition and Relation Extraction using Enhanced Table Filling by Contextualized Representations}, 
-      author={Youmi Ma and Tatsuya Hiraoka and Naoaki Okazaki},
-      year={2020},
-      eprint={2010.07522},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL}
+@article{Youmi Ma2022,
+  title={Named Entity Recognition and Relation Extraction Using Enhanced Table Filling by Contextualized Representations},
+  author={Youmi Ma and Tatsuya Hiraoka and Naoaki Okazaki},
+  journal={Journal of Natural Language Processing},
+  volume={29},
+  number={1},
+  pages={187-223},
+  year={2022},
+  doi={10.5715/jnlp.29.187}
 }
 ```
 
